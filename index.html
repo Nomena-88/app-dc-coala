@@ -2,13 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Droit de Communication - Prototype Coala</title>
+  <title>Application DC - Prototype Coala</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background:#f4f4f4; }
     header { background:#003366; color:white; padding:1rem; text-align:center; }
     .container { max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px; }
-    h2 { color:#003366; }
+    h2, h3 { color:#003366; }
     input, button, textarea { margin:0.5rem 0; padding:0.5rem; width: 100%; }
     textarea { font-family: monospace; }
     table { width:100%; border-collapse:collapse; margin-top:1rem; }
@@ -26,10 +26,9 @@
 <body>
 
 <header>
-  <h1>Droit de Communication (Export Sage Coala)</h1>
+  <h1>Application - Déclaration DC (Export Sage Coala)</h1>
 </header>
 
-<!-- Connexion fictive -->
 <div class="container" id="loginSection">
   <h2>Connexion</h2>
   <input type="text" id="username" placeholder="Identifiant" />
@@ -38,17 +37,29 @@
   <p id="loginError" style="color:red;"></p>
 </div>
 
-<!-- Gestion fournisseurs -->
 <div class="container hidden" id="fournisseursSection">
   <h2>Gestion des fournisseurs</h2>
   <p>Editez la base des fournisseurs avec Raison sociale, NIF, Statut, Adresse (format JSON) :</p>
   <textarea id="fournisseursJSON" rows="10" placeholder='Exemple : [{"raisonSociale":"Société A","nif":"123456789","statut":"Taxable","adresse":"12 rue Exemple"}]'></textarea>
   <button class="btn" onclick="enregistrerFournisseurs()">Enregistrer fournisseurs</button>
   <p id="msgFournisseurs" style="color:green;"></p>
+
+  <h3>Liste des fournisseurs enregistrés</h3>
+  <table id="tableFournisseurs" border="1" style="width:100%; border-collapse: collapse;">
+    <thead>
+      <tr>
+        <th>Raison Sociale</th>
+        <th>NIF</th>
+        <th>Statut</th>
+        <th>Adresse</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <button class="btn" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
 </div>
 
-<!-- Import grand livre -->
 <div class="container hidden" id="importSection">
   <h2>Import du grand livre (Export Sage Coala)</h2>
   <p><b>Format attendu CSV ou Excel :</b> colonnes essentielles : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
@@ -75,20 +86,18 @@
 </div>
 
 <script>
-  // Tableau base fournisseurs
   let fournisseursArray = [];
 
-  // Connexion fictive
   function login() {
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
     if (user === "admin" && pass === "dc2025") {
       document.getElementById("loginSection").classList.add("hidden");
-      // Charge base fournisseurs du localStorage
       const stored = localStorage.getItem("fournisseursArray");
       if (stored) {
         fournisseursArray = JSON.parse(stored);
         document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursArray, null, 2);
+        majTableFournisseurs();
       }
       document.getElementById("fournisseursSection").classList.remove("hidden");
     } else {
@@ -96,7 +105,6 @@
     }
   }
 
-  // Enregistrer fournisseurs depuis textarea
   function enregistrerFournisseurs() {
     try {
       const text = document.getElementById("fournisseursJSON").value.trim();
@@ -107,23 +115,36 @@
       fournisseursArray = JSON.parse(text);
       localStorage.setItem("fournisseursArray", text);
       document.getElementById("msgFournisseurs").textContent = "Fournisseurs enregistrés avec succès.";
+      majTableFournisseurs();
     } catch (e) {
       alert("Erreur JSON: " + e.message);
     }
   }
 
-  // Passer à la section import grand livre
+  function majTableFournisseurs() {
+    const tbody = document.querySelector("#tableFournisseurs tbody");
+    tbody.innerHTML = "";
+    fournisseursArray.forEach(f => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${f.raisonSociale || ""}</td>
+        <td>${f.nif || ""}</td>
+        <td>${f.statut || ""}</td>
+        <td>${f.adresse || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
   function afficherImportSection() {
     document.getElementById("fournisseursSection").classList.add("hidden");
     document.getElementById("importSection").classList.remove("hidden");
   }
 
-  // Recherche fournisseur dans tableau par raison sociale
   function getInfosFournisseur(raisonSociale) {
     return fournisseursArray.find(f => f.raisonSociale === raisonSociale) || null;
   }
 
-  // Traitement du fichier importé (CSV ou XLSX)
   function processFile() {
     const file = document.getElementById("csvFile").files[0];
     if (!file) {
@@ -151,14 +172,12 @@
         if (cols.length < header.length) return;
 
         const compte = (cols[idxCompte] || "").toString().trim();
-        if (!compte.startsWith("6")) return; // Filtre classe 6
+        if (!compte.startsWith("6")) return;
 
         const tiers = (cols[idxTiers] || "Inconnu").trim();
 
-        // Recherche infos fournisseur dans tableau
         const infos = getInfosFournisseur(tiers);
 
-        // Complète NIF, statut, adresse si fournisseur trouvé
         let nif = (cols[idxNif] || "").trim();
         if ((!nif || nif === "-") && infos) nif = infos.nif;
 
@@ -201,7 +220,6 @@
     }
   }
 
-  // Affiche le tableau de résultats
   function renderTable(data) {
     const tbody = document.querySelector("#resultsTable tbody");
     tbody.innerHTML = "";
@@ -219,7 +237,6 @@
     document.getElementById("results").classList.remove("hidden");
   }
 
-  // Export CSV
   function exportCSV() {
     let csv = "Fournisseur,NIF,Statut,Adresse,TotalHT\n";
     const rows = document.querySelectorAll("#resultsTable tbody tr");
@@ -234,7 +251,6 @@
     a.click();
   }
 
-  // Export PDF
   async function exportPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
