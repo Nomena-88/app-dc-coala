@@ -16,10 +16,8 @@
     .btn-primary { background:#003366; border:none; }
     .btn-primary:hover { background:#0055aa; }
     .logo-img { height:40px; }
-    .top-actions { display:flex; justify-content:flex-end; margin-bottom:10px; }
   </style>
 </head>
-
 
 <body>
   <!-- NAVBAR -->
@@ -42,9 +40,6 @@
 
   <!-- GESTION TIERS -->
   <div class="container-box hidden" id="fournisseursSection">
-    <div class="top-actions">
-      <button class="btn btn-outline-secondary" onclick="logout()">⬅ Déconnexion</button>
-    </div>
     <h2>Gestion des Tiers</h2>
     <form id="formFournisseur" class="row g-2">
       <div class="col-md-3"><input type="text" id="inputRaison" class="form-control" placeholder="Raison Sociale" required></div>
@@ -77,9 +72,6 @@
 
   <!-- IMPORT GL -->
   <div class="container-box hidden" id="importSection">
-    <div class="top-actions">
-      <button class="btn btn-outline-secondary" onclick="backToTiers()">⬅ Retour à la gestion des tiers</button>
-    </div>
     <h2>Import du grand livre</h2>
     <p><b>Format attendu :</b> colonnes : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
     <input type="file" id="csvFile" class="form-control mb-2" accept=".csv,.xlsx" />
@@ -115,17 +107,6 @@
       majTableFournisseurs();
     }
     else document.getElementById("loginError").textContent = "Identifiants invalides.";
-  }
-
-  function logout(){
-    document.getElementById("fournisseursSection").classList.add("hidden");
-    document.getElementById("importSection").classList.add("hidden");
-    document.getElementById("loginSection").classList.remove("hidden");
-  }
-
-  function backToTiers(){
-    document.getElementById("importSection").classList.add("hidden");
-    document.getElementById("fournisseursSection").classList.remove("hidden");
   }
 
   document.getElementById("formFournisseur").addEventListener("submit", function(e){
