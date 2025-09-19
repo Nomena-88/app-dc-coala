@@ -41,8 +41,8 @@
 <!-- Gestion fournisseurs -->
 <div class="container hidden" id="fournisseursSection">
   <h2>Gestion des fournisseurs</h2>
-  <p>Editez la base des fournisseurs avec NIF et statut (format JSON):</p>
-  <textarea id="fournisseursJSON" rows="10" placeholder='Exemple: {"Société A":{"nif":"123456789","statut":"Taxable"}}'></textarea>
+  <p>Editez la base des fournisseurs avec Raison sociale, NIF, Statut, Adresse (format JSON) :</p>
+  <textarea id="fournisseursJSON" rows="10" placeholder='Exemple : [{"raisonSociale":"Société A","nif":"123456789","statut":"Taxable","adresse":"12 rue Exemple"}]'></textarea>
   <button class="btn" onclick="enregistrerFournisseurs()">Enregistrer fournisseurs</button>
   <p id="msgFournisseurs" style="color:green;"></p>
   <button class="btn" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
@@ -63,6 +63,7 @@
           <th>Fournisseur (Tiers)</th>
           <th>NIF</th>
           <th>Statut</th>
+          <th>Adresse</th>
           <th>Total HT (Débit - Crédit)</th>
         </tr>
       </thead>
@@ -74,8 +75,8 @@
 </div>
 
 <script>
-  // Variables globales
-  let fournisseursInfos = {};
+  // Tableau base fournisseurs
+  let fournisseursArray = [];
 
   // Connexion fictive
   function login() {
@@ -84,10 +85,10 @@
     if (user === "admin" && pass === "dc2025") {
       document.getElementById("loginSection").classList.add("hidden");
       // Charge base fournisseurs du localStorage
-      const stored = localStorage.getItem("fournisseursInfos");
+      const stored = localStorage.getItem("fournisseursArray");
       if (stored) {
-        fournisseursInfos = JSON.parse(stored);
-        document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursInfos, null, 2);
+        fournisseursArray = JSON.parse(stored);
+        document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursArray, null, 2);
       }
       document.getElementById("fournisseursSection").classList.remove("hidden");
     } else {
@@ -103,8 +104,8 @@
         alert("Veuillez saisir un JSON valide pour la base des fournisseurs.");
         return;
       }
-      fournisseursInfos = JSON.parse(text);
-      localStorage.setItem("fournisseursInfos", text);
+      fournisseursArray = JSON.parse(text);
+      localStorage.setItem("fournisseursArray", text);
       document.getElementById("msgFournisseurs").textContent = "Fournisseurs enregistrés avec succès.";
     } catch (e) {
       alert("Erreur JSON: " + e.message);
@@ -115,6 +116,11 @@
   function afficherImportSection() {
     document.getElementById("fournisseursSection").classList.add("hidden");
     document.getElementById("importSection").classList.remove("hidden");
+  }
+
+  // Recherche fournisseur dans tableau par raison sociale
+  function getInfosFournisseur(raisonSociale) {
+    return fournisseursArray.find(f => f.raisonSociale === raisonSociale) || null;
   }
 
   // Traitement du fichier importé (CSV ou XLSX)
@@ -148,17 +154,22 @@
         if (!compte.startsWith("6")) return; // Filtre classe 6
 
         const tiers = (cols[idxTiers] || "Inconnu").trim();
-        // Complète NIF automatique si absent
-        let nif = (cols[idxNif] || "").trim();
-        if (!nif && fournisseursInfos[tiers]) nif = fournisseursInfos[tiers].nif || "-";
 
-        let statut = fournisseursInfos[tiers] ? fournisseursInfos[tiers].statut || "-" : "-";
+        // Recherche infos fournisseur dans tableau
+        const infos = getInfosFournisseur(tiers);
+
+        // Complète NIF, statut, adresse si fournisseur trouvé
+        let nif = (cols[idxNif] || "").trim();
+        if ((!nif || nif === "-") && infos) nif = infos.nif;
+
+        let statut = infos ? infos.statut : "-";
+        let adresse = infos ? infos.adresse : "-";
 
         const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
         const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
 
         const key = tiers + "|" + nif;
-        if (!data[key]) data[key] = { fournisseur: tiers, nif, statut, total: 0 };
+        if (!data[key]) data[key] = { fournisseur: tiers, nif, statut, adresse, total: 0 };
         data[key].total += debit - credit;
       });
 
@@ -200,6 +211,7 @@
         <td>${row.fournisseur}</td>
         <td>${row.nif}</td>
         <td>${row.statut}</td>
+        <td>${row.adresse}</td>
         <td>${row.total.toFixed(2)}</td>
       `;
       tbody.appendChild(tr);
@@ -209,7 +221,7 @@
 
   // Export CSV
   function exportCSV() {
-    let csv = "Fournisseur,NIF,Statut,TotalHT\n";
+    let csv = "Fournisseur,NIF,Statut,Adresse,TotalHT\n";
     const rows = document.querySelectorAll("#resultsTable tbody tr");
     rows.forEach(r => {
       const cols = r.querySelectorAll("td");
@@ -230,7 +242,7 @@
     doc.text("Déclaration DC - Résumé", 10, 10);
     let y = 25;
     doc.setFontSize(10);
-    doc.text("Fournisseur | NIF | Statut | TotalHT", 10, 20);
+    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT", 10, 20);
     const rows = document.querySelectorAll("#resultsTable tbody tr");
     rows.forEach(r => {
       const cols = r.querySelectorAll("td");
