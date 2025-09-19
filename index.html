@@ -1,274 +1,578 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Application DC - Gestion Tiers & Import Grand Livre</title>
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <title>Application DC — Gestion Tiers & Import Grand Livre</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Dependencies: SheetJS (XLSX), jsPDF, jsPDF-AutoTable -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
   <style>
-    body { background:#f4f4f4; }
-    .container-box { max-width: 1000px; margin: 2rem auto; background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);}
-    textarea { font-family: monospace; }
-    .hidden { display: none; }
-    .table thead { background:#003366; color:white; }
-    .btn-primary { background:#003366; border:none; }
-    .btn-primary:hover { background:#0055aa; }
-    .logo-img { height:40px; }
+    body { background: #f4f6fb; }
+    header.navbar { background: #003366; }
+    .navbar-brand, .navbar-brand:hover { color: #fff !important; }
+    .card { border-radius: 12px; }
+    .spinner-overlay{
+      position: fixed; inset:0; background: rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:1050; display:none;
+    }
+    .table-responsive { max-height: 56vh; overflow:auto; }
+    .small-muted { font-size: 0.85rem; color: #6c757d; }
   </style>
 </head>
-
 <body>
-  <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-dark" style="background:#003366;">
-    <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center" href="#">
-        <img src="logo.png" alt="Logo" class="logo-img me-2"> Application DC
-      </a>
+
+<header>
+  <nav class="navbar navbar-expand-lg">
+    <div class="container">
+      <a class="navbar-brand" href="#">Application DC</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMenu">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('home')">Accueil</a></li>
+          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('tiers')">Gestion Tiers</a></li>
+          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('import')">Import Grand Livre</a></li>
+        </ul>
+        <button id="btnLogout" class="btn btn-outline-light ms-3 d-none" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Déconnexion</button>
+      </div>
     </div>
   </nav>
+</header>
 
-  <!-- LOGIN -->
-  <div class="container-box" id="loginSection">
-    <h2>Connexion</h2>
-    <input type="text" id="username" class="form-control my-2" placeholder="Identifiant" />
-    <input type="password" id="password" class="form-control my-2" placeholder="Mot de passe" />
-    <button class="btn btn-primary w-100" onclick="login()">Se connecter</button>
-    <p id="loginError" style="color:red;"></p>
+<main class="container my-4">
+
+  <!-- Spinner overlay -->
+  <div id="spinner" class="spinner-overlay">
+    <div class="text-center">
+      <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem"></div>
+      <div class="mt-2">Traitement en cours...</div>
+    </div>
   </div>
 
-  <!-- GESTION TIERS -->
-  <div class="container-box hidden" id="fournisseursSection">
-    <h2>Gestion des Tiers</h2>
-    <form id="formFournisseur" class="row g-2">
-      <div class="col-md-3"><input type="text" id="inputRaison" class="form-control" placeholder="Raison Sociale" required></div>
-      <div class="col-md-2"><input type="text" id="inputNIF" class="form-control" placeholder="NIF"></div>
-      <div class="col-md-2"><input type="text" id="inputStatut" class="form-control" placeholder="Statut"></div>
-      <div class="col-md-3"><input type="text" id="inputAdresse" class="form-control" placeholder="Adresse"></div>
-      <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Ajouter</button></div>
+  <!-- Login Section -->
+  <section id="loginSection" class="card p-4">
+    <h3>Connexion</h3>
+    <p class="small-muted">Identifiez-vous pour accéder à l'application.</p>
+
+    <div class="row g-2">
+      <div class="col-md-5">
+        <input id="username" class="form-control" placeholder="Identifiant" />
+      </div>
+      <div class="col-md-5">
+        <input id="password" type="password" class="form-control" placeholder="Mot de passe" />
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary" onclick="login()"><i class="bi bi-lock-fill"></i> Se connecter</button>
+      </div>
+    </div>
+    <div class="mt-2">
+      <small id="loginError" class="text-danger"></small>
+      <small class="d-block mt-2">Compte par défaut : <code>admin</code> / <code>dc2025</code> (sécurité côté client — à renforcer en prod)</small>
+    </div>
+  </section>
+
+  <!-- Home (visible after login) -->
+  <section id="homeSection" class="card p-4 mt-4 d-none">
+    <h3>Bienvenue dans l'application DC</h3>
+    <p>Utilisez le menu pour gérer les tiers ou importer le grand livre. Cette version est une amélioration de ton code : recherche, édition/suppression des fournisseurs, exports CSV/XLSX/PDF, total global, et plus.</p>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-people-fill"></i> Tiers</h5>
+          <p class="small-muted">Ajouter, modifier, supprimer et rechercher des fournisseurs.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('tiers')">Aller aux tiers</button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-file-earmark-spreadsheet-fill"></i> Import Grand Livre</h5>
+          <p class="small-muted">Importer CSV/Excel exporté de Coala — calcule automatiquement les comptes de classe 6.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('import')">Importer un fichier</button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-download"></i> Exports</h5>
+          <p class="small-muted">Exporter les résultats en CSV, Excel ou PDF.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('import')">Voir exports</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gestion Tiers -->
+  <section id="tiersSection" class="card p-4 mt-4 d-none">
+    <div class="d-flex justify-content-between align-items-center">
+      <h3>Gestion des Tiers</h3>
+      <div>
+        <input id="searchTiers" class="form-control form-control-sm" placeholder="Rechercher par raison sociale, NIF..." oninput="renderTiersTable()">
+      </div>
+    </div>
+
+    <form id="formFournisseur" class="row g-2 mt-3" onsubmit="handleTiersSubmit(event)">
+      <input type="hidden" id="editingIndex" />
+      <div class="col-md-4">
+        <input id="inputRaison" class="form-control" placeholder="Raison Sociale (obligatoire)" required />
+      </div>
+      <div class="col-md-2">
+        <input id="inputNIF" class="form-control" placeholder="NIF (numérique)" inputmode="numeric" />
+      </div>
+      <div class="col-md-3">
+        <input id="inputStatut" class="form-control" placeholder="Statut" />
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <input id="inputAdresse" class="form-control" placeholder="Adresse" />
+        <button id="btnAdd" class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i> Ajouter</button>
+      </div>
     </form>
 
-    <div class="mt-3">
-      <input type="text" id="searchInput" class="form-control" placeholder="🔍 Rechercher un tiers...">
-    </div>
-
-    <h3 class="mt-4">Liste des tiers enregistrés</h3>
-    <table class="table table-bordered mt-3" id="tableFournisseurs">
-      <thead>
-        <tr><th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Actions</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <div class="d-flex justify-content-between">
-      <button class="btn btn-secondary" id="prevPage">⬅ Précédent</button>
-      <span id="pageInfo" class="align-self-center"></span>
-      <button class="btn btn-secondary" id="nextPage">Suivant ➡</button>
-    </div>
-
-    <button class="btn btn-primary mt-4" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
-  </div>
-
-  <!-- IMPORT GL -->
-  <div class="container-box hidden" id="importSection">
-    <h2>Import du grand livre</h2>
-    <p><b>Format attendu :</b> colonnes : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
-    <input type="file" id="csvFile" class="form-control mb-2" accept=".csv,.xlsx" />
-    <button class="btn btn-primary w-100" onclick="processFile()">Importer et calculer (classe 6)</button>
-
-    <div id="results" class="hidden mt-4">
-      <h2>Tableau de déclaration (Canevas DC)</h2>
-      <table class="table table-bordered" id="resultsTable">
-        <thead>
-          <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Total HT</th></tr>
+    <div class="table-responsive mt-3">
+      <table id="tableFournisseurs" class="table table-striped table-hover">
+        <thead class="table-primary">
+          <tr>
+            <th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th style="width:140px">Actions</th>
+          </tr>
         </thead>
         <tbody></tbody>
-        <tfoot>
-          <tr><th colspan="4">TOTAL</th><th id="grandTotal"></th></tr>
-        </tfoot>
       </table>
-      <button class="btn btn-success" onclick="exportCSV()">⬇ Exporter en CSV</button>
-      <button class="btn btn-danger" onclick="exportPDF()">⬇ Exporter en PDF</button>
     </div>
-  </div>
+
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-outline-secondary" onclick="downloadFournisseursJSON()"><i class="bi bi-download"></i> Sauvegarder JSON</button>
+      <button class="btn btn-outline-secondary" onclick="importFournisseursJSON()"><i class="bi bi-upload"></i> Importer JSON</button>
+      <button class="btn btn-secondary ms-auto" onclick="showSection('import')">Passer à l'import Grand Livre</button>
+    </div>
+  </section>
+
+  <!-- Import Section -->
+  <section id="importSectionCard" class="card p-4 mt-4 d-none">
+    <div class="d-flex justify-content-between align-items-center">
+      <h3>Import du Grand Livre</h3>
+      <small class="small-muted">Format CSV ou Excel : colonnes essentielles (Date, Compte, Tiers, NIF, Libelle, Debit, Credit)</small>
+    </div>
+
+    <div class="row g-2 mt-3 align-items-center">
+      <div class="col-md-6">
+        <input id="csvFile" type="file" class="form-control" accept=".csv,.xlsx,.xls" />
+      </div>
+      <div class="col-md-6 d-flex gap-2">
+        <button class="btn btn-primary" onclick="processFile()"><i class="bi bi-file-earmark-arrow-up"></i> Importer et calculer (classe 6)</button>
+        <button class="btn btn-outline-secondary" onclick="clearResults()"><i class="bi bi-trash"></i> Réinitialiser résultats</button>
+      </div>
+    </div>
+
+    <div id="results" class="mt-4 d-none">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5>Tableau de déclaration (Canevas DC)</h5>
+        <div>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="exportCSV()"><i class="bi bi-filetype-csv"></i> CSV</button>
+          <button class="btn btn-sm btn-outline-success me-1" onclick="exportXLSX()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="exportPDF()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table id="resultsTable" class="table table-bordered">
+          <thead class="table-dark">
+            <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th class="text-end">Total HT (Débit - Crédit)</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr class="table-secondary">
+              <td colspan="4" class="text-end"><strong>Total global :</strong></td>
+              <td id="totalGlobal" class="text-end"><strong>0.00</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mt-4 small text-muted">Version améliorée • Client-side demo (localStorage). Pour production, sécuriser authentification et déplacer logic côté serveur.</footer>
+</main>
+
+<!-- Bootstrap scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  let fournisseursArray = JSON.parse(localStorage.getItem("fournisseursArray") || "[]");
-  let currentPage = 1;
-  const itemsPerPage = 5;
+/*
+  Application DC - Single file improved
+  - localStorage key: fournisseursArray (array)
+  - Login basic client-side (admin/dc2025)
+*/
 
-  function login() {
-    const user = document.getElementById("username").value;
-    const pass = document.getElementById("password").value;
-    if(user === "admin" && pass === "dc2025"){
-      document.getElementById("loginSection").classList.add("hidden");
-      document.getElementById("fournisseursSection").classList.remove("hidden");
-      majTableFournisseurs();
-    }
-    else document.getElementById("loginError").textContent = "Identifiants invalides.";
+const LS_KEY = "fournisseursArray_v2";
+let fournisseursArray = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+let resultsData = null; // Map of key -> { fournisseur, nif, statut, adresse, total }
+
+function showSection(name){
+  // sections: login, home, tiers, import
+  document.getElementById("loginSection").classList.add("d-none");
+  document.getElementById("homeSection").classList.add("d-none");
+  document.getElementById("tiersSection").classList.add("d-none");
+  document.getElementById("importSectionCard").classList.add("d-none");
+  document.getElementById("btnLogout").classList.add("d-none");
+
+  if(name === "login") document.getElementById("loginSection").classList.remove("d-none");
+  if(name === "home") { document.getElementById("homeSection").classList.remove("d-none"); document.getElementById("btnLogout").classList.remove("d-none"); }
+  if(name === "tiers") { document.getElementById("tiersSection").classList.remove("d-none"); document.getElementById("btnLogout").classList.remove("d-none"); renderTiersTable(); }
+  if(name === "import") { document.getElementById("importSectionCard").classList.remove("d-none"); document.getElementById("btnLogout").classList.remove("d-none"); }
+}
+
+function login(){
+  const user = document.getElementById("username").value.trim();
+  const pass = document.getElementById("password").value;
+  const loginError = document.getElementById("loginError");
+  loginError.textContent = "";
+  if(user === "admin" && pass === "dc2025"){
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+    showSection("home");
+  } else {
+    loginError.textContent = "Identifiants invalides.";
+  }
+}
+
+function logout(){
+  showSection("login");
+}
+
+/* --------- Tiers management (Add / Edit / Delete) --------- */
+
+function saveFournisseursToStorage(){
+  localStorage.setItem(LS_KEY, JSON.stringify(fournisseursArray));
+}
+
+function handleTiersSubmit(e){
+  e.preventDefault();
+  const raison = document.getElementById("inputRaison").value.trim();
+  const nif = document.getElementById("inputNIF").value.trim();
+  const statut = document.getElementById("inputStatut").value.trim();
+  const adresse = document.getElementById("inputAdresse").value.trim();
+  const editingIndex = document.getElementById("editingIndex").value;
+
+  if(!raison){
+    return alert("Raison sociale obligatoire.");
+  }
+  if(nif && !/^\d+$/.test(nif)){
+    return alert("NIF doit contenir seulement des chiffres.");
   }
 
-  document.getElementById("formFournisseur").addEventListener("submit", function(e){
-    e.preventDefault();
-    const raison = document.getElementById("inputRaison").value.trim();
-    if(!raison) return alert("Raison sociale obligatoire.");
-    const nif = document.getElementById("inputNIF").value.trim();
-    const statut = document.getElementById("inputStatut").value.trim();
-    const adresse = document.getElementById("inputAdresse").value.trim();
-    fournisseursArray.push({ raisonSociale: raison, nif, statut, adresse });
-    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
-    majTableFournisseurs();
-    e.target.reset();
+  const obj = { raisonSociale: raison, nif, statut, adresse };
+
+  if(editingIndex){
+    fournisseursArray[parseInt(editingIndex,10)] = obj;
+    document.getElementById("editingIndex").value = "";
+    document.getElementById("btnAdd").innerHTML = '<i class="bi bi-plus-lg"></i> Ajouter';
+  } else {
+    fournisseursArray.push(obj);
+  }
+
+  saveFournisseursToStorage();
+  renderTiersTable();
+  document.getElementById("formFournisseur").reset();
+}
+
+function renderTiersTable(){
+  const tbody = document.querySelector("#tableFournisseurs tbody");
+  tbody.innerHTML = "";
+  const q = document.getElementById("searchTiers").value.trim().toLowerCase();
+  fournisseursArray.forEach((f, idx) => {
+    const combined = (f.raisonSociale + " " + (f.nif||"") + " " + (f.statut||"")).toLowerCase();
+    if(q && !combined.includes(q)) return;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(f.raisonSociale)}</td>
+      <td>${escapeHtml(f.nif || "")}</td>
+      <td>${escapeHtml(f.statut || "")}</td>
+      <td>${escapeHtml(f.adresse || "")}</td>
+      <td class="text-end">
+        <div class="btn-group" role="group">
+          <button class="btn btn-sm btn-outline-primary" onclick="editFournisseur(${idx})" title="Modifier"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteFournisseur(${idx})" title="Supprimer"><i class="bi bi-trash"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
   });
+}
 
-  function majTableFournisseurs(){
-    const tbody = document.querySelector("#tableFournisseurs tbody");
-    tbody.innerHTML = "";
-    const search = document.getElementById("searchInput").value.toLowerCase();
-    let filtered = fournisseursArray.filter(f => f.raisonSociale.toLowerCase().includes(search));
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    if(currentPage>totalPages) currentPage=totalPages||1;
-    const start = (currentPage-1)*itemsPerPage;
-    const pageItems = filtered.slice(start,start+itemsPerPage);
-    pageItems.forEach((f,i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${f.raisonSociale}</td>
-        <td>${f.nif||""}</td>
-        <td>${f.statut||""}</td>
-        <td>${f.adresse||""}</td>
-        <td>
-          <button class="btn btn-sm btn-warning" onclick="editFournisseur(${start+i})">✏ Modifier</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteFournisseur(${start+i})">🗑 Supprimer</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-    document.getElementById("pageInfo").textContent = `Page ${currentPage}/${totalPages||1}`;
-  }
+function editFournisseur(idx){
+  const f = fournisseursArray[idx];
+  document.getElementById("inputRaison").value = f.raisonSociale;
+  document.getElementById("inputNIF").value = f.nif || "";
+  document.getElementById("inputStatut").value = f.statut || "";
+  document.getElementById("inputAdresse").value = f.adresse || "";
+  document.getElementById("editingIndex").value = idx;
+  document.getElementById("btnAdd").innerHTML = '<i class="bi bi-save"></i> Enregistrer';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-  function editFournisseur(index){
-    const f = fournisseursArray[index];
-    document.getElementById("inputRaison").value=f.raisonSociale;
-    document.getElementById("inputNIF").value=f.nif;
-    document.getElementById("inputStatut").value=f.statut;
-    document.getElementById("inputAdresse").value=f.adresse;
-    deleteFournisseur(index);
-  }
+function deleteFournisseur(idx){
+  if(!confirm("Confirmer la suppression de ce fournisseur ?")) return;
+  fournisseursArray.splice(idx, 1);
+  saveFournisseursToStorage();
+  renderTiersTable();
+}
 
-  function deleteFournisseur(index){
-    fournisseursArray.splice(index,1);
-    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
-    majTableFournisseurs();
-  }
+/* Import / Process file */
 
-  document.getElementById("searchInput").addEventListener("input", ()=>{currentPage=1;majTableFournisseurs();});
-  document.getElementById("prevPage").addEventListener("click", ()=>{if(currentPage>1){currentPage--;majTableFournisseurs();}});
-  document.getElementById("nextPage").addEventListener("click", ()=>{currentPage++;majTableFournisseurs();});
+function showSpinner(on = true){
+  document.getElementById("spinner").style.display = on ? "flex" : "none";
+}
 
-  function afficherImportSection(){
-    document.getElementById("fournisseursSection").classList.add("hidden");
-    document.getElementById("importSection").classList.remove("hidden");
-  }
+function processFile(){
+  const fileInput = document.getElementById("csvFile");
+  const file = fileInput.files[0];
+  if(!file) return alert("Veuillez choisir un fichier CSV ou Excel.");
 
-  function getInfosFournisseur(raisonSociale){
-    return fournisseursArray.find(f=>f.raisonSociale===raisonSociale) || null;
-  }
-
-  function processFile(){
-    const file=document.getElementById("csvFile").files[0];
-    if(!file){alert("Veuillez importer un fichier CSV ou Excel.");return;}
-    const reader=new FileReader();
-    function processData(rows,header){
-      const idxCompte=header.findIndex(h=>h.toLowerCase().includes("compte"));
-      const idxTiers=header.findIndex(h=>h.toLowerCase().includes("tiers"));
-      const idxNif=header.findIndex(h=>h.toLowerCase().includes("nif"));
-      const idxDebit=header.findIndex(h=>h.toLowerCase().includes("debit"));
-      const idxCredit=header.findIndex(h=>h.toLowerCase().includes("credit"));
-      if(idxCompte===-1||idxTiers===-1||idxNif===-1||idxDebit===-1||idxCredit===-1){
-        alert("Le fichier doit contenir : Compte, Tiers, NIF, Débit, Crédit.");return;
-      }
-      let data={}, totalGlobal=0;
-      rows.forEach(cols=>{
-        if(cols.length<header.length) return;
-        const compte=(cols[idxCompte]||"").toString().trim();
-        if(!compte.startsWith("6")) return;
-        const tiers=(cols[idxTiers]||"Inconnu").trim();
-        const infos=getInfosFournisseur(tiers);
-        let nif=(cols[idxNif]||"").trim(); if((!nif||nif==="-")&&infos) nif=infos.nif;
-        let statut=infos?infos.statut:"-";
-        let adresse=infos?infos.adresse:"-";
-        const debit=parseFloat((cols[idxDebit]||"0").toString().replace(",","."))||0;
-        const credit=parseFloat((cols[idxCredit]||"0").toString().replace(",","."))||0;
-        const key=tiers+"|"+nif;
-        if(!data[key]) data[key]={ fournisseur:tiers, nif, statut, adresse, total:0 };
-        data[key].total+=debit-credit;
-        totalGlobal+=debit-credit;
-      });
-      renderTable(data,totalGlobal);
-    }
-    if(file.name.endsWith(".csv")){
-      reader.onload=e=>{
-        const lines=e.target.result.split("\n").map(l=>l.trim()).filter(l=>l.length);
-        const header=lines[0].split(",");
-        const rows=lines.slice(1).map(l=>l.split(","));
-        processData(rows,header);
-      };
-      reader.readAsText(file);
+  showSpinner(true);
+  setTimeout(() => { // small delay for spinner UI
+    if(file.name.endsWith(".csv") || file.type === "text/csv"){
+      file.text().then(text => {
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+        // detect separator (comma or semicolon)
+        const sep = (lines[0].includes(";") && !lines[0].includes(",")) ? ";" : ",";
+        const header = lines[0].split(sep).map(h => h.trim());
+        const rows = lines.slice(1).map(line => parseCsvLine(line, sep));
+        processData(rows, header);
+        showSpinner(false);
+      }).catch(err => { showSpinner(false); alert("Erreur lecture CSV: "+err.message); });
     } else {
-      reader.onload=e=>{
-        const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const json=XLSX.utils.sheet_to_json(ws,{header:1});
-        processData(json.slice(1),json[0]);
+      // Try XLSX
+      const reader = new FileReader();
+      reader.onload = function(e){
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, {header:1});
+          if(!json || json.length < 2) { showSpinner(false); return alert("Feuille vide ou format invalide."); }
+          const header = json[0].map(h=> (h||"").toString().trim());
+          const rows = json.slice(1).map(r => r.map(c => (c===undefined? "": c)));
+          processData(rows, header);
+        } catch(err){
+          alert("Erreur lecture Excel: " + err.message);
+        } finally {
+          showSpinner(false);
+        }
       };
+      reader.onerror = function(){ showSpinner(false); alert("Erreur lecture fichier."); };
       reader.readAsArrayBuffer(file);
     }
+  }, 150);
+}
+
+function parseCsvLine(line, sep=","){
+  // handle simple quoted values
+  const re = new RegExp(`\\s*(?:"([^"]*(?:""[^"]*)*)"|([^${sep}]*))\\s*(?:${sep}|$)`, 'g');
+  const res = [];
+  let m;
+  let rest = line;
+  if(sep === ","){
+    // fallback simple split if regex fails
+    if(line.indexOf('"') === -1) return line.split(sep).map(s => s.trim());
+  }
+  // fallback default
+  return line.split(sep).map(s => s.replace(/^"|"$/g,"").trim());
+}
+
+function processData(lines, header){
+  // header: array of column names
+  // lines: array of arrays (rows)
+  const headerLower = header.map(h => (h||"").toString().toLowerCase());
+  const idxCompte = headerLower.findIndex(h => h.includes("compte"));
+  const idxTiers = headerLower.findIndex(h => h.includes("tiers"));
+  const idxNif = headerLower.findIndex(h => h.includes("nif"));
+  const idxDebit = headerLower.findIndex(h => h.includes("debit"));
+  const idxCredit = headerLower.findIndex(h => h.includes("credit"));
+
+  if(idxCompte === -1 || idxTiers === -1 || idxDebit === -1 || idxCredit === -1){
+    alert("Le fichier doit contenir au minimum les colonnes : Compte, Tiers, Débit, Crédit. (NIF recommandé)");
+    return;
   }
 
-  function renderTable(data,total){
-    const tbody=document.querySelector("#resultsTable tbody");
-    tbody.innerHTML="";
-    Object.values(data).forEach(r=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${r.fournisseur}</td><td>${r.nif}</td><td>${r.statut}</td><td>${r.adresse}</td><td>${r.total.toFixed(2)}</td>`;
-      tbody.appendChild(tr);
-    });
-    document.getElementById("grandTotal").textContent=total.toFixed(2);
-    document.getElementById("results").classList.remove("hidden");
-  }
+  // Using Map for aggregation
+  const map = new Map();
 
-  function exportCSV(){
-    let csv="Fournisseur,NIF,Statut,Adresse,TotalHT\n";
-    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
-      const cols=r.querySelectorAll("td");
-      csv+=Array.from(cols).map(c=>c.innerText).join(",")+"\n";
-    });
-    const blob=new Blob([csv],{type:"text/csv"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="declaration_DC.csv";a.click();
-  }
+  lines.forEach(cols => {
+    if(!Array.isArray(cols)) return;
+    // ensure length
+    if(cols.length < header.length) {
+      // pad
+      while(cols.length < header.length) cols.push("");
+    }
+    const compte = (cols[idxCompte] || "").toString().trim();
+    if(!compte) return;
+    // only class 6
+    if(!compte.toString().startsWith("6")) return;
 
-  async function exportPDF(){
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF("p","pt","a4");
-    const img=new Image(); img.src="logo.png";
-    doc.addImage(img,10,10,40,40);
-    doc.setFontSize(14);
-    doc.text("Déclaration DC - Résumé",60,30);
-    let y=70;
-    doc.setFontSize(10);
-    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT",10,y);
-    y+=20;
-    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
-      const line=Array.from(r.querySelectorAll("td")).map(c=>c.innerText).join(" | ");
-      if(y>780){doc.addPage();y=30;}
-      doc.text(line,10,y); y+=15;
-    });
-    doc.text("TOTAL : "+document.getElementById("grandTotal").textContent,10,y+20);
-    doc.save("declaration_DC.pdf");
-  }
+    const tiers = (cols[idxTiers] || "Inconnu").toString().trim() || "Inconnu";
+    let nif = (idxNif !== -1 ? (cols[idxNif] || "").toString().trim() : "");
+    // fallback to saved fournisseur nif if exists
+    const saved = fournisseursArray.find(f => f.raisonSociale === tiers);
+    if((!nif || nif === "-") && saved) nif = saved.nif || "";
+    const statut = saved ? saved.statut : "-";
+    const adresse = saved ? saved.adresse : "-";
+
+    const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",",".").replace(/\s/g, "")) || 0;
+    const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",",".").replace(/\s/g, "")) || 0;
+
+    const key = tiers + "|" + nif;
+    const prev = map.get(key) || { fournisseur: tiers, nif, statut, adresse, total: 0 };
+    prev.total += debit - credit;
+    map.set(key, prev);
+  });
+
+  // Store results
+  resultsData = Array.from(map.values()).sort((a,b) => a.fournisseur.localeCompare(b.fournisseur));
+  renderResults();
+}
+
+function renderResults(){
+  const tbody = document.querySelector("#resultsTable tbody");
+  tbody.innerHTML = "";
+  let totalGlobal = 0;
+  resultsData.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(r.fournisseur)}</td>
+      <td>${escapeHtml(r.nif || "")}</td>
+      <td>${escapeHtml(r.statut || "")}</td>
+      <td>${escapeHtml(r.adresse || "")}</td>
+      <td class="text-end">${Number(r.total||0).toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
+    totalGlobal += Number(r.total||0);
+  });
+  document.getElementById("totalGlobal").innerHTML = `<strong>${totalGlobal.toFixed(2)}</strong>`;
+  document.getElementById("results").classList.remove("d-none");
+  // scroll into view
+  document.getElementById("results").scrollIntoView({ behavior: 'smooth' });
+}
+
+/* Exports */
+
+function exportCSV(){
+  if(!resultsData || resultsData.length === 0) return alert("Pas de données à exporter.");
+  let csv = "Fournisseur,NIF,Statut,Adresse,TotalHT\n";
+  resultsData.forEach(r => {
+    csv += `"${r.fournisseur.replace(/"/g,'""')}","${(r.nif||"").replace(/"/g,'""')}","${(r.statut||"").replace(/"/g,'""')}","${(r.adresse||"").replace(/"/g,'""')}",${Number(r.total||0).toFixed(2)}\n`;
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "declaration_DC.csv";
+  a.click();
+}
+
+function exportXLSX(){
+  if(!resultsData || resultsData.length === 0) return alert("Pas de données à exporter.");
+  const wsData = [
+    ["Fournisseur","NIF","Statut","Adresse","TotalHT"],
+    ...resultsData.map(r => [r.fournisseur, r.nif || "", r.statut || "", r.adresse || "", Number(r.total||0)])
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb, ws, "Déclaration_DC");
+  XLSX.writeFile(wb, "declaration_DC.xlsx");
+}
+
+function exportPDF(){
+  if(!resultsData || resultsData.length === 0) return alert("Pas de données à exporter.");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const title = "Déclaration DC - Résumé";
+  doc.setFontSize(14);
+  doc.text(title, 40, 50);
+
+  // Header
+  const headers = [["Fournisseur","NIF","Statut","Adresse","TotalHT"]];
+  const body = resultsData.map(r => [r.fournisseur, r.nif || "", r.statut || "", r.adresse || "", Number(r.total||0).toFixed(2)]);
+
+  doc.autoTable({
+    head: headers,
+    body: body,
+    startY: 70,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [0, 51, 102] },
+    margin: { left: 40, right: 40 },
+    didDrawPage: function (data) {
+      // footer
+      const page = doc.internal.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.text(`Page ${page}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
+    }
+  });
+
+  // total global
+  const totalGlobal = resultsData.reduce((s, r) => s + Number(r.total||0), 0);
+  doc.setFontSize(11);
+  doc.text(`Total global: ${totalGlobal.toFixed(2)}`, 40, doc.internal.pageSize.height - 40);
+
+  doc.save("declaration_DC.pdf");
+}
+
+/* Utils */
+
+function clearResults(){
+  resultsData = null;
+  document.querySelector("#resultsTable tbody").innerHTML = "";
+  document.getElementById("totalGlobal").innerText = "0.00";
+  document.getElementById("results").classList.add("d-none");
+  document.getElementById("csvFile").value = "";
+}
+
+function downloadFournisseursJSON(){
+  const blob = new Blob([JSON.stringify(fournisseursArray, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "fournisseurs.json";
+  a.click();
+}
+
+function importFournisseursJSON(){
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = "application/json";
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try {
+        const arr = JSON.parse(ev.target.result);
+        if(!Array.isArray(arr)) throw new Error("Format JSON invalide");
+        fournisseursArray = arr;
+        saveFournisseursToStorage();
+        renderTiersTable();
+        alert("Import OK");
+      } catch(err){
+        alert("Erreur import JSON: " + err.message);
+      }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+
+function escapeHtml(s){
+  if(!s && s !== 0) return "";
+  return s.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* Init */
+renderTiersTable();
+showSection("login");
 </script>
+
 </body>
 </html>
