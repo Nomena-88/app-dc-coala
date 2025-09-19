@@ -1,208 +1,250 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  
   <meta charset="UTF-8" />
   <title>Application DC - Prototype Coala</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {font-family: Arial, sans-serif; margin: 0; background:#f4f4f4;}
-    header {background:#003366; color:white; padding:1rem; text-align:center;}
-    .container {max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px;}
-    h2 {color:#003366;}
-    input, button {margin:0.5rem 0; padding:0.5rem;}
-    table {width:100%; border-collapse:collapse; margin-top:1rem;}
-    th, td {border:1px solid #ccc; padding:0.5rem; text-align:center;}
-    th {background:#003366; color:white;}
-    .hidden {display:none;}
-    .btn {background:#003366; color:white; border:none; cursor:pointer; border-radius:3px;}
-    .btn:hover {background:#0055aa;}
+    body { font-family: Arial, sans-serif; margin: 0; background:#f4f4f4; }
+    header { background:#003366; color:white; padding:1rem; text-align:center; }
+    .container { max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px; }
+    h2 { color:#003366; }
+    input, button, textarea { margin:0.5rem 0; padding:0.5rem; width: 100%; }
+    textarea { font-family: monospace; }
+    table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    th, td { border:1px solid #ccc; padding:0.5rem; text-align:center; }
+    th { background:#003366; color:white; }
+    .hidden { display:none; }
+    .btn { background:#003366; color:white; border:none; cursor:pointer; border-radius:3px; width: auto; padding:0.5rem 1rem; margin-top: 1rem; }
+    .btn:hover { background:#0055aa; }
   </style>
+
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 </head>
 <body>
-  <header>
-    <h1>Application - Déclaration DC (Export Sage Coala)</h1>
-  </header>
 
-  <div class="container" id="loginSection">
-    <h2>Connexion</h2>
-    <input type="text" id="username" placeholder="Identifiant"><br />
-    <input type="password" id="password" placeholder="Mot de passe"><br />
-    <button class="btn" onclick="login()">Se connecter</button>
-    <p id="loginError" style="color:red;"></p>
+<header>
+  <h1>Application - Déclaration DC (Export Sage Coala)</h1>
+</header>
+
+<!-- Connexion fictive -->
+<div class="container" id="loginSection">
+  <h2>Connexion</h2>
+  <input type="text" id="username" placeholder="Identifiant" />
+  <input type="password" id="password" placeholder="Mot de passe" />
+  <button class="btn" onclick="login()">Se connecter</button>
+  <p id="loginError" style="color:red;"></p>
+</div>
+
+<!-- Gestion fournisseurs -->
+<div class="container hidden" id="fournisseursSection">
+  <h2>Gestion des fournisseurs</h2>
+  <p>Editez la base des fournisseurs avec NIF et statut (format JSON):</p>
+  <textarea id="fournisseursJSON" rows="10" placeholder='Exemple: {"Société A":{"nif":"123456789","statut":"Taxable"}}'></textarea>
+  <button class="btn" onclick="enregistrerFournisseurs()">Enregistrer fournisseurs</button>
+  <p id="msgFournisseurs" style="color:green;"></p>
+  <button class="btn" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
+</div>
+
+<!-- Import grand livre -->
+<div class="container hidden" id="importSection">
+  <h2>Import du grand livre (Export Sage Coala)</h2>
+  <p><b>Format attendu CSV ou Excel :</b> colonnes essentielles : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
+  <input type="file" id="csvFile" accept=".csv,.xlsx" />
+  <button class="btn" onclick="processFile()">Importer et calculer (classe 6)</button>
+
+  <div id="results" class="hidden">
+    <h2>Tableau de déclaration (Canevas DC)</h2>
+    <table id="resultsTable">
+      <thead>
+        <tr>
+          <th>Fournisseur (Tiers)</th>
+          <th>NIF</th>
+          <th>Statut</th>
+          <th>Total HT (Débit - Crédit)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn" onclick="exportCSV()">Exporter en CSV</button>
+    <button class="btn" onclick="exportPDF()">Exporter en PDF</button>
   </div>
+</div>
 
-  <div class="container hidden" id="appSection">
-    <h2>Import du grand livre (Export Sage Coala)</h2>
-    <p><b>Format attendu CSV ou Excel :</b> Colonnes essentielles : Date,Compte,Tiers,NIF,Libelle,Debit,Credit</p>
-    <input type="file" id="csvFile" accept=".csv, .xlsx"><br />
-    <button class="btn" onclick="processFile()">Importer et calculer (classe 6)</button>
+<script>
+  // Variables globales
+  let fournisseursInfos = {};
 
-    <div id="results" class="hidden">
-      <h2>Tableau de déclaration (Canevas DC)</h2>
-      <table id="resultsTable">
-        <thead>
-          <tr>
-            <th>Fournisseur (Tiers)</th>
-            <th>NIF</th>
-            <th>Statut</th>
-            <th>Total HT (Débit - Crédit)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button class="btn" onclick="exportCSV()">Exporter en CSV</button>
-      <button class="btn" onclick="exportPDF()">Exporter en PDF</button>
-    </div>
-  </div>
-
-  <script>
-    // Connexion fictive
-    function login() {
-      const user = document.getElementById("username").value;
-      const pass = document.getElementById("password").value;
-      if (user === "admin" && pass === "dc2025") {
-        document.getElementById("loginSection").classList.add("hidden");
-        document.getElementById("appSection").classList.remove("hidden");
-      } else {
-        document.getElementById("loginError").textContent = "Identifiants invalides.";
+  // Connexion fictive
+  function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    if (user === "admin" && pass === "dc2025") {
+      document.getElementById("loginSection").classList.add("hidden");
+      // Charge base fournisseurs du localStorage
+      const stored = localStorage.getItem("fournisseursInfos");
+      if (stored) {
+        fournisseursInfos = JSON.parse(stored);
+        document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursInfos, null, 2);
       }
+      document.getElementById("fournisseursSection").classList.remove("hidden");
+    } else {
+      document.getElementById("loginError").textContent = "Identifiants invalides.";
+    }
+  }
+
+  // Enregistrer fournisseurs depuis textarea
+  function enregistrerFournisseurs() {
+    try {
+      const text = document.getElementById("fournisseursJSON").value.trim();
+      if (!text) {
+        alert("Veuillez saisir un JSON valide pour la base des fournisseurs.");
+        return;
+      }
+      fournisseursInfos = JSON.parse(text);
+      localStorage.setItem("fournisseursInfos", text);
+      document.getElementById("msgFournisseurs").textContent = "Fournisseurs enregistrés avec succès.";
+    } catch (e) {
+      alert("Erreur JSON: " + e.message);
+    }
+  }
+
+  // Passer à la section import grand livre
+  function afficherImportSection() {
+    document.getElementById("fournisseursSection").classList.add("hidden");
+    document.getElementById("importSection").classList.remove("hidden");
+  }
+
+  // Traitement du fichier importé (CSV ou XLSX)
+  function processFile() {
+    const file = document.getElementById("csvFile").files[0];
+    if (!file) {
+      alert("Veuillez importer un fichier CSV ou Excel exporté de Coala.");
+      return;
     }
 
-    // Base fournisseur pour complétion automatique NIF et Statut
-    const fournisseursInfos = {
-      "Société A": { nif: "123456789", statut: "Taxable" },
-      "Entreprise B": { nif: "987654321", statut: "Exonéré" },
-      "Fournisseur C": { nif: "555444333", statut: "Taxable" }
-      // Ajoutez vos fournisseurs ici en vrai
-    };
+    const reader = new FileReader();
 
-    function processFile() {
-      const file = document.getElementById("csvFile").files[0];
-      if (!file) {
-        alert("Veuillez importer un fichier CSV ou Excel exporté de Coala.");
+    function processData(lines, header) {
+      const idxCompte = header.findIndex(h => h.toLowerCase().includes("compte"));
+      const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
+      const idxNif = header.findIndex(h => h.toLowerCase().includes("nif"));
+      const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
+      const idxCredit = header.findIndex(h => h.toLowerCase().includes("credit"));
+
+      if (idxCompte === -1 || idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
+        alert("Le fichier doit contenir les colonnes : Compte, Tiers, NIF, Débit, Crédit.");
         return;
       }
 
-      const reader = new FileReader();
+      let data = {};
 
-      function processData(lines, header) {
-        const idxCompte = header.findIndex(h => h.toLowerCase().includes("compte"));
-        const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
-        const idxNif = header.findIndex(h => h.toLowerCase().includes("nif"));
-        const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
-        const idxCredit = header.findIndex(h => h.toLowerCase().includes("credit"));
+      lines.forEach(cols => {
+        if (cols.length < header.length) return;
 
-        if (idxCompte === -1 || idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
-          alert("Le fichier doit contenir les colonnes : Compte, Tiers, NIF, Débit, Crédit.");
-          return;
-        }
+        const compte = (cols[idxCompte] || "").toString().trim();
+        if (!compte.startsWith("6")) return; // Filtre classe 6
 
-        let data = {};
+        const tiers = (cols[idxTiers] || "Inconnu").trim();
+        // Complète NIF automatique si absent
+        let nif = (cols[idxNif] || "").trim();
+        if (!nif && fournisseursInfos[tiers]) nif = fournisseursInfos[tiers].nif || "-";
 
-        lines.forEach(cols => {
-          if (cols.length < header.length) return;
+        let statut = fournisseursInfos[tiers] ? fournisseursInfos[tiers].statut || "-" : "-";
 
-          const compte = (cols[idxCompte] || "").toString().trim();
-          if (!compte.startsWith("6")) return; // Filtre classe 6
+        const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
+        const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
 
-          const tiers = (cols[idxTiers] || "Inconnu").trim();
-          // Complète NIF automatique si manquant
-          let nif = (cols[idxNif] || "").trim();
-          if (!nif && fournisseursInfos[tiers]) nif = fournisseursInfos[tiers].nif;
-          let statut = fournisseursInfos[tiers] ? fournisseursInfos[tiers].statut : "-";
+        const key = tiers + "|" + nif;
+        if (!data[key]) data[key] = { fournisseur: tiers, nif, statut, total: 0 };
+        data[key].total += debit - credit;
+      });
 
-          const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
-          const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
+      renderTable(data);
+    }
 
-          const key = tiers + "|" + nif;
-          if (!data[key]) data[key] = { fournisseur: tiers, nif, statut, total: 0 };
-          data[key].total += debit - credit;
-        });
+    if (file.name.endsWith(".csv")) {
+      reader.onload = function (e) {
+        const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
+        const header = lines[0].split(",");
+        const rows = lines.slice(1).map(line => line.split(","));
+        processData(rows, header);
+      };
+      reader.readAsText(file);
+    } else if (file.name.endsWith(".xlsx")) {
+      reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const header = json[0];
+        const rows = json.slice(1);
+        processData(rows, header);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert("Format non supporté, veuillez importer un CSV ou un Excel.");
+    }
+  }
 
-        renderTable(data);
+  // Affiche le tableau de résultats
+  function renderTable(data) {
+    const tbody = document.querySelector("#resultsTable tbody");
+    tbody.innerHTML = "";
+    Object.values(data).forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.fournisseur}</td>
+        <td>${row.nif}</td>
+        <td>${row.statut}</td>
+        <td>${row.total.toFixed(2)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("results").classList.remove("hidden");
+  }
+
+  // Export CSV
+  function exportCSV() {
+    let csv = "Fournisseur,NIF,Statut,TotalHT\n";
+    const rows = document.querySelectorAll("#resultsTable tbody tr");
+    rows.forEach(r => {
+      const cols = r.querySelectorAll("td");
+      csv += Array.from(cols).map(c => c.innerText).join(",") + "\n";
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "declaration_DC.csv";
+    a.click();
+  }
+
+  // Export PDF
+  async function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Déclaration DC - Résumé", 10, 10);
+    let y = 25;
+    doc.setFontSize(10);
+    doc.text("Fournisseur | NIF | Statut | TotalHT", 10, 20);
+    const rows = document.querySelectorAll("#resultsTable tbody tr");
+    rows.forEach(r => {
+      const cols = r.querySelectorAll("td");
+      const line = Array.from(cols).map(c => c.innerText).join(" | ");
+      if (y > 280) {
+        doc.addPage();
+        y = 10;
       }
+      doc.text(line, 10, y);
+      y += 10;
+    });
+    doc.save("declaration_DC.pdf");
+  }
+</script>
 
-      if (file.name.endsWith(".csv")) {
-        reader.onload = function (e) {
-          const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
-          const header = lines[0].split(",");
-          const rows = lines.slice(1).map(line => line.split(","));
-          processData(rows, header);
-        };
-        reader.readAsText(file);
-      } else if (file.name.endsWith(".xlsx")) {
-        reader.onload = function (e) {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          const header = json[0];
-          const rows = json.slice(1);
-          processData(rows, header);
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        alert("Format non supporté, veuillez importer un CSV ou un Excel.");
-      }
-    }
-
-    function renderTable(data) {
-      const tbody = document.querySelector("#resultsTable tbody");
-      tbody.innerHTML = "";
-      Object.values(data).forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.fournisseur}</td>
-          <td>${row.nif}</td>
-          <td>${row.statut}</td>
-          <td>${row.total.toFixed(2)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-      document.getElementById("results").classList.remove("hidden");
-    }
-
-    // Export CSV
-    function exportCSV() {
-      let csv = "Fournisseur,NIF,Statut,TotalHT\n";
-      const rows = document.querySelectorAll("#resultsTable tbody tr");
-      rows.forEach(r => {
-        const cols = r.querySelectorAll("td");
-        csv += Array.from(cols).map(c => c.innerText).join(",") + "\n";
-      });
-      const blob = new Blob([csv], { type: "text/csv" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "declaration_DC.csv";
-      a.click();
-    }
-
-    // Export PDF
-    async function exportPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.setFontSize(14);
-      doc.text("Déclaration DC - Résumé", 10, 10);
-      let y = 25;
-      doc.setFontSize(10);
-      doc.text("Fournisseur | NIF | Statut | TotalHT", 10, 20);
-      const rows = document.querySelectorAll("#resultsTable tbody tr");
-      rows.forEach(r => {
-        const cols = r.querySelectorAll("td");
-        const line = Array.from(cols).map(c => c.innerText).join(" | ");
-        if (y > 280) {
-          doc.addPage();
-          y = 10;
-        }
-        doc.text(line, 10, y);
-        y += 10;
-      });
-      doc.save("declaration_DC.pdf");
-    }
-  </script>
 </body>
 </html>
