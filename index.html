@@ -1,229 +1,408 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Application DC — Gestion Tiers & Import Grand Livre</title>
+
+<!-- Bootstrap 5 -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
+<!-- Dependencies: SheetJS (XLSX), jsPDF, jsPDF-AutoTable -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
 <style>
-  body { background: #f4f6fb; }
-  body.dark-mode { background:#1e1e2f; color:#ddd; }
-  body.dark-mode .card { background:#2b2b3c; color:#ddd; }
-  header.navbar { background: #003366; }
-  .navbar-brand, .navbar-brand:hover { color: #fff !important; }
+  body { background: #f4f6fb; transition: background 0.3s, color 0.3s; }
+  body.dark-mode { background: #121212; color: #e0e0e0; }
+  .navbar { border-bottom: 1px solid rgba(255,255,255,0.2); }
   .card { border-radius: 12px; }
   .spinner-overlay{
     position: fixed; inset:0; background: rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:1050; display:none;
   }
+  body.dark-mode .card { background: #1e1e1e; color: #e0e0e0; }
+  body.dark-mode .table { color: #e0e0e0; }
   .table-responsive { max-height: 56vh; overflow:auto; }
   .small-muted { font-size: 0.85rem; color: #6c757d; }
+  body.dark-mode .small-muted { color: #aaa; }
 </style>
 </head>
 <body>
 
+<!-- Navbar -->
 <header>
-<nav class="navbar navbar-expand-lg">
-<div class="container">
-<a class="navbar-brand" href="#">Application DC</a>
-<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
-  <span class="navbar-toggler-icon"></span>
-</button>
-<div class="collapse navbar-collapse" id="navMenu">
-  <ul class="navbar-nav ms-auto">
-    <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('home')">Accueil</a></li>
-    <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('tiers')">Gestion Tiers</a></li>
-    <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('import')">Import Grand Livre</a></li>
-    <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('users')">Utilisateurs</a></li>
-    <li class="nav-item"><a class="nav-link text-white" href="#" onclick="toggleDarkMode()"><i class="bi bi-moon-stars"></i></a></li>
-  </ul>
-  <button id="btnLogoutMenu" class="btn btn-outline-light ms-3 d-none" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Déconnexion</button>
-</div>
-</div>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+  <div class="container">
+    <!-- Logo -->
+    <a class="navbar-brand d-flex align-items-center" href="#" onclick="showSection('home')">
+      <img src="logo.png" alt="Logo DC" width="40" height="40" class="me-2">
+      Application DC
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('home')">Accueil</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('tiers')">Gestion Tiers</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('import')">Import Grand Livre</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="showSection('users')">Utilisateurs</a></li>
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-light" onclick="toggleDarkMode()" title="Mode sombre"><i class="bi bi-moon-stars"></i></button>
+        <button id="btnLogoutMenu" class="btn btn-outline-light d-none" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Déconnexion</button>
+      </div>
+    </div>
+  </div>
 </nav>
 </header>
 
 <main class="container my-4">
 
-<div id="spinner" class="spinner-overlay">
-<div class="text-center">
-  <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem"></div>
-  <div class="mt-2">Traitement en cours...</div>
-</div>
-</div>
-
-<!-- Login -->
-<section id="loginSection" class="card p-4">
-<h3>Connexion</h3>
-<p class="small-muted">Identifiez-vous pour accéder à l'application.</p>
-<div class="row g-2">
-  <div class="col-md-5"><input id="username" class="form-control" placeholder="Identifiant" /></div>
-  <div class="col-md-5"><input id="password" type="password" class="form-control" placeholder="Mot de passe" /></div>
-  <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="login()"><i class="bi bi-lock-fill"></i> Se connecter</button></div>
-</div>
-<div class="mt-2">
-  <small id="loginError" class="text-danger"></small>
-</div>
-</section>
-
-<!-- Home -->
-<section id="homeSection" class="card p-4 mt-4 d-none">
-<h3>Bienvenue dans l'application DC</h3>
-<p>Utilisez le menu ou les boutons ci-dessous.</p>
-<div class="row">
-  <div class="col-md-4">
-    <div class="card p-3 mb-3">
-      <h5><i class="bi bi-people-fill"></i> Tiers</h5>
-      <p class="small-muted">Ajouter, modifier, supprimer et rechercher des fournisseurs.</p>
-      <button class="btn btn-sm btn-primary" onclick="showSection('tiers')">Aller aux tiers</button>
+  <!-- Spinner overlay -->
+  <div id="spinner" class="spinner-overlay">
+    <div class="text-center">
+      <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem"></div>
+      <div class="mt-2">Traitement en cours...</div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card p-3 mb-3">
-      <h5><i class="bi bi-file-earmark-spreadsheet-fill"></i> Import Grand Livre</h5>
-      <p class="small-muted">Importer CSV/Excel exporté de Coala.</p>
-      <button class="btn btn-sm btn-primary" onclick="showSection('import')">Importer un fichier</button>
+
+  <!-- Login Section -->
+  <section id="loginSection" class="card p-4">
+    <h3>Connexion</h3>
+    <p class="small-muted">Identifiez-vous pour accéder à l'application.</p>
+    <div class="row g-2">
+      <div class="col-md-5">
+        <input id="username" class="form-control" placeholder="Identifiant" />
+      </div>
+      <div class="col-md-5">
+        <input id="password" type="password" class="form-control" placeholder="Mot de passe" />
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary" onclick="login()"><i class="bi bi-lock-fill"></i> Se connecter</button>
+      </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card p-3 mb-3">
-      <h5><i class="bi bi-person-badge"></i> Utilisateurs</h5>
-      <p class="small-muted">Gérer les comptes utilisateurs.</p>
-      <button class="btn btn-sm btn-primary" onclick="showSection('users')">Voir utilisateurs</button>
+    <div class="mt-2">
+      <small id="loginError" class="text-danger"></small>
+      <small class="d-block mt-2">Compte par défaut : <code>admin</code> / <code>dc2025</code></small>
     </div>
-  </div>
-</div>
-</section>
+  </section>
 
-<!-- Gestion Tiers -->
-<section id="tiersSection" class="card p-4 mt-4 d-none">
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h3>Gestion des Tiers</h3>
-  <button class="btn btn-sm btn-outline-secondary" onclick="showSection('home')"><i class="bi bi-arrow-left"></i> Retour</button>
-</div>
-<div class="row mb-2">
-<div class="col-md-6"><input id="searchTiers" class="form-control form-control-sm" placeholder="Rechercher..." oninput="renderTiersTable()"></div>
-</div>
-<form id="formFournisseur" class="row g-2 mt-3" onsubmit="handleTiersSubmit(event)">
-<input type="hidden" id="editingIndex" />
-<div class="col-md-4"><input id="inputRaison" class="form-control" placeholder="Raison Sociale (obligatoire)" required /></div>
-<div class="col-md-2"><input id="inputNIF" class="form-control" placeholder="NIF (numérique)" inputmode="numeric" /></div>
-<div class="col-md-3"><input id="inputStatut" class="form-control" placeholder="Statut" /></div>
-<div class="col-md-3 d-flex gap-2"><input id="inputAdresse" class="form-control" placeholder="Adresse" /><button id="btnAdd" class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i> Ajouter</button></div>
-</form>
-<div class="table-responsive mt-3">
-<table id="tableFournisseurs" class="table table-striped table-hover">
-<thead class="table-primary">
-<tr><th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Actions</th></tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-<div class="mt-2 d-flex justify-content-between">
-<div id="paginationTiers"></div>
-</div>
-</section>
+  <!-- Home Section -->
+  <section id="homeSection" class="card p-4 mt-4 d-none">
+    <h3>Bienvenue dans l'application DC</h3>
+    <p>Utilisez le menu ou les boutons ci-dessous pour gérer les tiers ou importer le grand livre.</p>
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-people-fill"></i> Tiers</h5>
+          <p class="small-muted">Ajouter, modifier, supprimer et rechercher des fournisseurs.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('tiers')">Aller aux tiers</button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-file-earmark-spreadsheet-fill"></i> Import Grand Livre</h5>
+          <p class="small-muted">Importer CSV/Excel exporté de Coala.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('import')">Importer un fichier</button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 mb-3">
+          <h5><i class="bi bi-person-lines-fill"></i> Utilisateurs</h5>
+          <p class="small-muted">Gérer les utilisateurs et leurs rôles.</p>
+          <button class="btn btn-sm btn-primary" onclick="showSection('users')">Voir utilisateurs</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<!-- Utilisateurs -->
-<section id="usersSection" class="card p-4 mt-4 d-none">
-<div class="d-flex justify-content-between align-items-center mb-2">
-<h3>Gestion Utilisateurs</h3>
-<button class="btn btn-sm btn-outline-secondary" onclick="showSection('home')"><i class="bi bi-arrow-left"></i> Retour</button>
-</div>
-<div class="row g-2 mb-2">
-<div class="col-md-4"><input id="inputUserName" class="form-control" placeholder="Nom utilisateur" /></div>
-<div class="col-md-4"><input id="inputUserPass" type="password" class="form-control" placeholder="Mot de passe" /></div>
-<div class="col-md-4 d-grid"><button class="btn btn-success" onclick="addUser()"><i class="bi bi-plus-lg"></i> Ajouter utilisateur</button></div>
-</div>
-<div class="table-responsive">
-<table id="tableUsers" class="table table-striped table-hover">
-<thead class="table-primary"><tr><th>Utilisateur</th><th>Actions</th></tr></thead>
-<tbody></tbody>
-</table>
-</div>
-</section>
+  <!-- Gestion Tiers -->
+  <section id="tiersSection" class="card p-4 mt-4 d-none">
+    <h3>Gestion des Tiers</h3>
+    <div class="row mb-2">
+      <div class="col-md-6">
+        <input id="searchTiers" class="form-control form-control-sm" placeholder="Rechercher..." oninput="renderTiersTable()">
+      </div>
+    </div>
+    <form id="formFournisseur" class="row g-2 mt-3" onsubmit="handleTiersSubmit(event)">
+      <input type="hidden" id="editingIndex" />
+      <div class="col-md-4">
+        <input id="inputRaison" class="form-control" placeholder="Raison Sociale (obligatoire)" required />
+      </div>
+      <div class="col-md-2">
+        <input id="inputNIF" class="form-control" placeholder="NIF" inputmode="numeric"/>
+      </div>
+      <div class="col-md-3">
+        <input id="inputStatut" class="form-control" placeholder="Statut" />
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <input id="inputAdresse" class="form-control" placeholder="Adresse" />
+        <button id="btnAdd" class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i> Ajouter</button>
+      </div>
+    </form>
 
-<footer class="mt-4 small text-muted">Version améliorée • Client-side demo (localStorage)</footer>
+    <div class="table-responsive mt-3">
+      <table id="tableFournisseurs" class="table table-striped table-hover">
+        <thead class="table-primary">
+          <tr><th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th style="width:140px">Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <nav>
+        <ul class="pagination" id="tiersPagination"></ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Import Section -->
+  <section id="importSectionCard" class="card p-4 mt-4 d-none">
+    <h3>Import du Grand Livre</h3>
+    <div class="row g-2 mt-3 align-items-center">
+      <div class="col-md-6">
+        <input id="csvFile" type="file" class="form-control" accept=".csv,.xlsx,.xls" />
+      </div>
+      <div class="col-md-6 d-flex gap-2">
+        <button class="btn btn-primary" onclick="processFile()">Importer et calculer (classe 6)</button>
+        <button class="btn btn-outline-secondary" onclick="clearResults()">Réinitialiser résultats</button>
+      </div>
+    </div>
+
+    <div id="results" class="mt-4 d-none">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5>Tableau de déclaration</h5>
+        <div>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="exportCSV()">CSV</button>
+          <button class="btn btn-sm btn-outline-success me-1" onclick="exportXLSX()">Excel</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="exportPDF()">PDF</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table id="resultsTable" class="table table-bordered">
+          <thead class="table-dark">
+            <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th class="text-end">Total HT</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr class="table-secondary">
+              <td colspan="4" class="text-end"><strong>Total global :</strong></td>
+              <td id="totalGlobal" class="text-end"><strong>0.00</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Users Section -->
+  <section id="usersSection" class="card p-4 mt-4 d-none">
+    <h3>Gestion des utilisateurs</h3>
+    <form id="formUser" class="row g-2 mt-3" onsubmit="handleUserSubmit(event)">
+      <input type="hidden" id="editingUserIndex" />
+      <div class="col-md-3">
+        <input id="inputUserName" class="form-control" placeholder="Nom utilisateur" required/>
+      </div>
+      <div class="col-md-3">
+        <input id="inputUserPass" type="password" class="form-control" placeholder="Mot de passe" required/>
+      </div>
+      <div class="col-md-3">
+        <select id="inputUserRole" class="form-select">
+          <option value="admin">Admin</option>
+          <option value="user">Utilisateur</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button id="btnAddUser" class="btn btn-success" type="submit">Ajouter</button>
+      </div>
+    </form>
+    <div class="table-responsive mt-3">
+      <table id="tableUsers" class="table table-striped table-hover">
+        <thead class="table-primary">
+          <tr><th>Nom</th><th>Rôle</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
 
+<footer class="mt-4 small text-muted text-center">Version améliorée • Demo côté client (localStorage)</footer>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-/* LocalStorage keys */
-const LS_USERS = "usersArray_v2";
-const LS_TIERS = "fournisseursArray_v2";
-let usersArray = JSON.parse(localStorage.getItem(LS_USERS)||"[]");
-if(usersArray.length===0){usersArray=[{username:"admin",password:"dc2025"}]; localStorage.setItem(LS_USERS,JSON.stringify(usersArray));}
-let fournisseursArray = JSON.parse(localStorage.getItem(LS_TIERS)||"[]");
+/* -------- LocalStorage -------- */
+const LS_TIERS = "fournisseursArray_v3";
+const LS_USERS = "usersArray_v1";
+let fournisseursArray = JSON.parse(localStorage.getItem(LS_TIERS) || "[]");
+let usersArray = JSON.parse(localStorage.getItem(LS_USERS) || "[]");
 
-/* Mode sombre */
-let darkMode=false;
-function toggleDarkMode(){ darkMode=!darkMode; document.body.classList.toggle("dark-mode"); }
+/* --- Pagination --- */
+const PAGE_SIZE = 5;
+let currentPage = 1;
 
-/* Login / Logout */
-function login(){
-  const u=document.getElementById("username").value.trim();
-  const p=document.getElementById("password").value;
-  const found=usersArray.find(user=>user.username===u && user.password===p);
-  if(found){ document.getElementById("username").value=""; document.getElementById("password").value=""; document.getElementById("btnLogoutMenu").classList.remove("d-none"); showSection("home"); }
-  else document.getElementById("loginError").textContent="Identifiants invalides.";
+/* -------- Sections -------- */
+function showSection(name){
+  ["loginSection","homeSection","tiersSection","importSectionCard","usersSection"].forEach(s=>document.getElementById(s).classList.add("d-none"));
+  document.getElementById("btnLogoutMenu").classList.add("d-none");
+
+  if(name==="login") document.getElementById("loginSection").classList.remove("d-none");
+  if(name==="home") { document.getElementById("homeSection").classList.remove("d-none"); document.getElementById("btnLogoutMenu").classList.remove("d-none"); }
+  if(name==="tiers") { document.getElementById("tiersSection").classList.remove("d-none"); document.getElementById("btnLogoutMenu").classList.remove("d-none"); renderTiersTable(); }
+  if(name==="import") { document.getElementById("importSectionCard").classList.remove("d-none"); document.getElementById("btnLogoutMenu").classList.remove("d-none"); }
+  if(name==="users") { document.getElementById("usersSection").classList.remove("d-none"); document.getElementById("btnLogoutMenu").classList.remove("d-none"); renderUsersTable(); }
 }
+
+/* -------- Login / Logout -------- */
+function login(){
+  const user = document.getElementById("username").value.trim();
+  const pass = document.getElementById("password").value;
+  const loginError = document.getElementById("loginError");
+  loginError.textContent = "";
+  
+  const found = usersArray.find(u=>u.name===user && u.pass===pass);
+  if(found || (user==="admin" && pass==="dc2025")){
+    document.getElementById("username").value="";
+    document.getElementById("password").value="";
+    showSection("home");
+  } else loginError.textContent="Identifiants invalides.";
+}
+
 function logout(){ showSection("login"); }
 
-/* Section toggle */
-function showSection(name){
-  ["loginSection","homeSection","tiersSection","importSectionCard","usersSection"].forEach(s=>document.getElementById(s)?.classList.add("d-none"));
-  if(name!=="login") document.getElementById("btnLogoutMenu").classList.remove("d-none");
-  document.getElementById(name+"Section")?.classList.remove("d-none");
-  if(name==="tiers") renderTiersTable();
-  if(name==="users") renderUsersTable();
+/* -------- Dark mode -------- */
+function toggleDarkMode(){
+  document.body.classList.toggle("dark-mode");
 }
 
-/* Gestion Tiers */
-function saveTiers(){ localStorage.setItem(LS_TIERS,JSON.stringify(fournisseursArray)); }
-function handleTiersSubmit(e){ e.preventDefault(); const raison=document.getElementById("inputRaison").value.trim(); const nif=document.getElementById("inputNIF").value.trim(); const statut=document.getElementById("inputStatut").value.trim(); const adresse=document.getElementById("inputAdresse").value.trim(); const idx=document.getElementById("editingIndex").value;
-if(!raison){alert("Raison sociale obligatoire."); return;} if(nif && !/^\d+$/.test(nif)){alert("NIF doit contenir seulement des chiffres."); return;}
-const obj={raisonSociale:raison,nif,statut,adresse};
-if(idx){ fournisseursArray[parseInt(idx,10)]=obj; document.getElementById("editingIndex").value=""; document.getElementById("btnAdd").innerHTML='<i class="bi bi-plus-lg"></i> Ajouter'; }
-else fournisseursArray.push(obj);
-saveTiers(); renderTiersTable(); document.getElementById("formFournisseur").reset(); }
+/* -------- Tiers -------- */
+function saveFournisseursToStorage(){ localStorage.setItem(LS_TIERS, JSON.stringify(fournisseursArray)); }
 
-/* Pagination pour Tiers */
-let currentPage=1, itemsPerPage=5;
+function handleTiersSubmit(e){
+  e.preventDefault();
+  const raison=document.getElementById("inputRaison").value.trim();
+  const nif=document.getElementById("inputNIF").value.trim();
+  const statut=document.getElementById("inputStatut").value.trim();
+  const adresse=document.getElementById("inputAdresse").value.trim();
+  const editingIndex=document.getElementById("editingIndex").value;
+
+  if(!raison){ alert("Raison sociale obligatoire."); return; }
+  if(nif && !/^\d+$/.test(nif)){ alert("NIF doit être numérique."); return; }
+
+  const obj={raisonSociale:raison,nif,statut,adresse};
+  if(editingIndex){ fournisseursArray[parseInt(editingIndex,10)]=obj; document.getElementById("editingIndex").value=""; document.getElementById("btnAdd").innerHTML='Ajouter'; }
+  else fournisseursArray.push(obj);
+
+  saveFournisseursToStorage();
+  renderTiersTable();
+  document.getElementById("formFournisseur").reset();
+}
+
 function renderTiersTable(){
-  const tbody=document.querySelector("#tableFournisseurs tbody"); tbody.innerHTML="";
+  const tbody=document.querySelector("#tableFournisseurs tbody");
+  tbody.innerHTML="";
   const q=document.getElementById("searchTiers").value.trim().toLowerCase();
-  let filtered=fournisseursArray.filter(f=> (f.raisonSociale+" "+(f.nif||"")+" "+(f.statut||"")).toLowerCase().includes(q));
-  const totalPages=Math.ceil(filtered.length/itemsPerPage);
-  currentPage=Math.min(currentPage,totalPages)||1;
-  const start=(currentPage-1)*itemsPerPage;
-  const pageItems=filtered.slice(start,start+itemsPerPage);
+  const filtered=fournisseursArray.filter(f=>{
+    const combined=(f.raisonSociale+" "+(f.nif||"")+" "+(f.statut||"")).toLowerCase();
+    return !q || combined.includes(q);
+  });
+
+  const totalPages=Math.ceil(filtered.length/PAGE_SIZE);
+  if(currentPage>totalPages) currentPage=1;
+  const start=(currentPage-1)*PAGE_SIZE;
+  const pageItems=filtered.slice(start,start+PAGE_SIZE);
+
   pageItems.forEach((f,idx)=>{
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${f.raisonSociale}</td><td>${f.nif||""}</td><td>${f.statut||""}</td><td>${f.adresse||""}</td>
-    <td><div class="btn-group"><button class="btn btn-sm btn-outline-primary" onclick="editTiers(${start+idx})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger" onclick="deleteTiers(${start+idx})"><i class="bi bi-trash"></i></button></div></td>`;
+    tr.innerHTML=`<td>${escapeHtml(f.raisonSociale)}</td><td>${escapeHtml(f.nif||"")}</td><td>${escapeHtml(f.statut||"")}</td><td>${escapeHtml(f.adresse||"")}</td>
+    <td class="text-end">
+      <div class="btn-group" role="group">
+        <button class="btn btn-sm btn-outline-primary" onclick="editFournisseur(${start+idx})"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteFournisseur(${start+idx})"><i class="bi bi-trash"></i></button>
+      </div>
+    </td>`;
     tbody.appendChild(tr);
   });
-  renderPagination(totalPages);
-}
-function editTiers(idx){ const f=fournisseursArray[idx]; document.getElementById("inputRaison").value=f.raisonSociale; document.getElementById("inputNIF").value=f.nif||""; document.getElementById("inputStatut").value=f.statut||""; document.getElementById("inputAdresse").value=f.adresse||""; document.getElementById("editingIndex").value=idx; document.getElementById("btnAdd").innerHTML='<i class="bi bi-save"></i> Enregistrer'; }
-function deleteTiers(idx){ if(confirm("Confirmer la suppression ?")){ fournisseursArray.splice(idx,1); saveTiers(); renderTiersTable(); } }
-function renderPagination(totalPages){
-  const container=document.getElementById("paginationTiers"); container.innerHTML="";
+
+  // Pagination
+  const pagUl=document.getElementById("tiersPagination");
+  pagUl.innerHTML="";
   for(let i=1;i<=totalPages;i++){
-    const btn=document.createElement("button"); btn.className=`btn btn-sm ${i===currentPage?"btn-primary":"btn-outline-primary"} me-1`; btn.textContent=i; btn.onclick=()=>{currentPage=i; renderTiersTable();};
-    container.appendChild(btn);
+    const li=document.createElement("li");
+    li.className=`page-item ${i===currentPage?"active":""}`;
+    li.innerHTML=`<a class="page-link" href="#" onclick="currentPage=${i}; renderTiersTable(); return false;">${i}</a>`;
+    pagUl.appendChild(li);
   }
 }
 
-/* Gestion utilisateurs */
-function saveUsers(){ localStorage.setItem(LS_USERS,JSON.stringify(usersArray)); }
-function addUser(){ const u=document.getElementById("inputUserName").value.trim(); const p=document.getElementById("inputUserPass").value; if(!u||!p){alert("Remplir les deux champs."); return;} usersArray.push({username:u,password:p}); saveUsers(); renderUsersTable(); document.getElementById("inputUserName").value=""; document.getElementById("inputUserPass").value=""; }
-function renderUsersTable(){ const tbody=document.querySelector("#tableUsers tbody"); tbody.innerHTML=""; usersArray.forEach((u,idx)=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${u.username}</td><td><button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${idx})"><i class="bi bi-trash"></i></button></td>`; tbody.appendChild(tr); }); }
-function deleteUser(idx){ if(confirm("Supprimer cet utilisateur ?")){ usersArray.splice(idx,1); saveUsers(); renderUsersTable(); } }
+function editFournisseur(idx){
+  const f=fournisseursArray[idx];
+  document.getElementById("inputRaison").value=f.raisonSociale;
+  document.getElementById("inputNIF").value=f.nif||"";
+  document.getElementById("inputStatut").value=f.statut||"";
+  document.getElementById("inputAdresse").value=f.adresse||"";
+  document.getElementById("editingIndex").value=idx;
+  document.getElementById("btnAdd").innerHTML='Enregistrer';
+}
 
+function deleteFournisseur(idx){ if(confirm("Confirmer suppression ?")){ fournisseursArray.splice(idx,1); saveFournisseursToStorage(); renderTiersTable(); } }
+
+/* -------- Users -------- */
+function saveUsersToStorage(){ localStorage.setItem(LS_USERS, JSON.stringify(usersArray)); }
+
+function handleUserSubmit(e){
+  e.preventDefault();
+  const name=document.getElementById("inputUserName").value.trim();
+  const pass=document.getElementById("inputUserPass").value;
+  const role=document.getElementById("inputUserRole").value;
+  const editingIndex=document.getElementById("editingUserIndex").value;
+
+  if(editingIndex){
+    usersArray[parseInt(editingIndex,10)]={name,pass,role};
+    document.getElementById("editingUserIndex").value="";
+    document.getElementById("btnAddUser").textContent="Ajouter";
+  } else { usersArray.push({name,pass,role}); }
+
+  saveUsersToStorage();
+  renderUsersTable();
+  document.getElementById("formUser").reset();
+}
+
+function renderUsersTable(){
+  const tbody=document.querySelector("#tableUsers tbody");
+  tbody.innerHTML="";
+  usersArray.forEach((u,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.role)}</td>
+      <td class="text-end">
+        <div class="btn-group" role="group">
+          <button class="btn btn-sm btn-outline-primary" onclick="editUser(${idx})"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${idx})"><i class="bi bi-trash"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function editUser(idx){
+  const u=usersArray[idx];
+  document.getElementById("inputUserName").value=u.name;
+  document.getElementById("inputUserPass").value=u.pass;
+  document.getElementById("inputUserRole").value=u.role;
+  document.getElementById("editingUserIndex").value=idx;
+  document.getElementById("btnAddUser").textContent="Enregistrer";
+}
+
+/* -------- Utils -------- */
+function escapeHtml(s){ if(!s && s!==0) return ""; return s.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* -------- Init -------- */
+renderTiersTable();
+renderUsersTable();
 showSection("login");
 </script>
+
 </body>
 </html>
