@@ -9,14 +9,16 @@
     header { background:#003366; color:white; padding:1rem; text-align:center; }
     .container { max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px; }
     h2, h3 { color:#003366; }
-    input, button, textarea { margin:0.5rem 0; padding:0.5rem; width: 100%; }
+    input, button, textarea { margin:0.3rem 0; padding:0.5rem; width: 100%; }
     textarea { font-family: monospace; }
     table { width:100%; border-collapse:collapse; margin-top:1rem; }
-    th, td { border:1px solid #ccc; padding:0.5rem; text-align:center; }
+    th, td { border:1px solid #ccc; padding:0.5rem; text-align:left; }
     th { background:#003366; color:white; }
     .hidden { display:none; }
     .btn { background:#003366; color:white; border:none; cursor:pointer; border-radius:3px; width: auto; padding:0.5rem 1rem; margin-top: 1rem; }
     .btn:hover { background:#0055aa; }
+    .form-inline {display: flex; gap: 10px; margin-bottom: 10px;}
+    .form-inline > input { flex-grow: 1; }
   </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -40,7 +42,7 @@
 <div class="container hidden" id="fournisseursSection">
   <h2>Gestion des fournisseurs</h2>
   <p>Editez la base des fournisseurs avec Raison sociale, NIF, Statut, Adresse (format JSON) :</p>
-  <textarea id="fournisseursJSON" rows="10" placeholder='Exemple : [{"raisonSociale":"Société A","nif":"123456789","statut":"Taxable","adresse":"12 rue Exemple"}]'></textarea>
+  <textarea id="fournisseursJSON" rows="6" placeholder='Exemple : [{"raisonSociale":"Société A","nif":"123456789","statut":"Taxable","adresse":"12 rue Exemple"}]'></textarea>
   <button class="btn" onclick="enregistrerFournisseurs()">Enregistrer fournisseurs</button>
   <p id="msgFournisseurs" style="color:green;"></p>
 
@@ -56,6 +58,15 @@
     </thead>
     <tbody></tbody>
   </table>
+
+  <h3>Ajouter un fournisseur</h3>
+  <div class="form-inline">
+    <input type="text" id="inputRaison" placeholder="Raison Sociale" />
+    <input type="text" id="inputNIF" placeholder="NIF" />
+    <input type="text" id="inputStatut" placeholder="Statut" />
+    <input type="text" id="inputAdresse" placeholder="Adresse" />
+    <button class="btn" style="flex-grow: 0;" onclick="ajouterFournisseur()">Ajouter</button>
+  </div>
 
   <button class="btn" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
 </div>
@@ -134,6 +145,35 @@
       `;
       tbody.appendChild(tr);
     });
+  }
+
+  function ajouterFournisseur() {
+    const raison = document.getElementById("inputRaison").value.trim();
+    const nif = document.getElementById("inputNIF").value.trim();
+    const statut = document.getElementById("inputStatut").value.trim();
+    const adresse = document.getElementById("inputAdresse").value.trim();
+
+    if (!raison) {
+      alert("La raison sociale doit être renseignée.");
+      return;
+    }
+
+    // Ajout à la liste en mémoire
+    fournisseursArray.push({ raisonSociale: raison, nif: nif || "-", statut: statut || "-", adresse: adresse || "-" });
+
+    // Mise à jour textarea JSON
+    document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursArray, null, 2);
+
+    // Rafraichir le tableau
+    majTableFournisseurs();
+
+    // Vide les champs de saisie
+    document.getElementById("inputRaison").value = "";
+    document.getElementById("inputNIF").value = "";
+    document.getElementById("inputStatut").value = "";
+    document.getElementById("inputAdresse").value = "";
+
+    document.getElementById("msgFournisseurs").textContent = "Fournisseur ajouté dans la liste (pensez à enregistrer).";
   }
 
   function afficherImportSection() {
