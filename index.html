@@ -19,7 +19,7 @@
     .top-actions { display:flex; justify-content:flex-end; margin-bottom:10px; }
   </style>
 </head>
-  
+
 <body>
   <!-- NAVBAR -->
   <nav class="navbar navbar-expand-lg navbar-dark" style="background:#003366;">
@@ -118,4 +118,175 @@
 
   function logout(){
     document.getElementById("fournisseursSection").classList.add("hidden");
-    document.getElementById("importSection
+    document.getElementById("importSection").classList.add("hidden");
+    document.getElementById("loginSection").classList.remove("hidden");
+  }
+
+  function backToTiers(){
+    document.getElementById("importSection").classList.add("hidden");
+    document.getElementById("fournisseursSection").classList.remove("hidden");
+  }
+
+  document.getElementById("formFournisseur").addEventListener("submit", function(e){
+    e.preventDefault();
+    const raison = document.getElementById("inputRaison").value.trim();
+    if(!raison) return alert("Raison sociale obligatoire.");
+    const nif = document.getElementById("inputNIF").value.trim();
+    const statut = document.getElementById("inputStatut").value.trim();
+    const adresse = document.getElementById("inputAdresse").value.trim();
+    fournisseursArray.push({ raisonSociale: raison, nif, statut, adresse });
+    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
+    majTableFournisseurs();
+    e.target.reset();
+  });
+
+  function majTableFournisseurs(){
+    const tbody = document.querySelector("#tableFournisseurs tbody");
+    tbody.innerHTML = "";
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    let filtered = fournisseursArray.filter(f => f.raisonSociale.toLowerCase().includes(search));
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if(currentPage>totalPages) currentPage=totalPages||1;
+    const start = (currentPage-1)*itemsPerPage;
+    const pageItems = filtered.slice(start,start+itemsPerPage);
+    pageItems.forEach((f,i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${f.raisonSociale}</td>
+        <td>${f.nif||""}</td>
+        <td>${f.statut||""}</td>
+        <td>${f.adresse||""}</td>
+        <td>
+          <button class="btn btn-sm btn-warning" onclick="editFournisseur(${start+i})">✏ Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteFournisseur(${start+i})">🗑 Supprimer</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("pageInfo").textContent = `Page ${currentPage}/${totalPages||1}`;
+  }
+
+  function editFournisseur(index){
+    const f = fournisseursArray[index];
+    document.getElementById("inputRaison").value=f.raisonSociale;
+    document.getElementById("inputNIF").value=f.nif;
+    document.getElementById("inputStatut").value=f.statut;
+    document.getElementById("inputAdresse").value=f.adresse;
+    deleteFournisseur(index);
+  }
+
+  function deleteFournisseur(index){
+    fournisseursArray.splice(index,1);
+    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
+    majTableFournisseurs();
+  }
+
+  document.getElementById("searchInput").addEventListener("input", ()=>{currentPage=1;majTableFournisseurs();});
+  document.getElementById("prevPage").addEventListener("click", ()=>{if(currentPage>1){currentPage--;majTableFournisseurs();}});
+  document.getElementById("nextPage").addEventListener("click", ()=>{currentPage++;majTableFournisseurs();});
+
+  function afficherImportSection(){
+    document.getElementById("fournisseursSection").classList.add("hidden");
+    document.getElementById("importSection").classList.remove("hidden");
+  }
+
+  function getInfosFournisseur(raisonSociale){
+    return fournisseursArray.find(f=>f.raisonSociale===raisonSociale) || null;
+  }
+
+  function processFile(){
+    const file=document.getElementById("csvFile").files[0];
+    if(!file){alert("Veuillez importer un fichier CSV ou Excel.");return;}
+    const reader=new FileReader();
+    function processData(rows,header){
+      const idxCompte=header.findIndex(h=>h.toLowerCase().includes("compte"));
+      const idxTiers=header.findIndex(h=>h.toLowerCase().includes("tiers"));
+      const idxNif=header.findIndex(h=>h.toLowerCase().includes("nif"));
+      const idxDebit=header.findIndex(h=>h.toLowerCase().includes("debit"));
+      const idxCredit=header.findIndex(h=>h.toLowerCase().includes("credit"));
+      if(idxCompte===-1||idxTiers===-1||idxNif===-1||idxDebit===-1||idxCredit===-1){
+        alert("Le fichier doit contenir : Compte, Tiers, NIF, Débit, Crédit.");return;
+      }
+      let data={}, totalGlobal=0;
+      rows.forEach(cols=>{
+        if(cols.length<header.length) return;
+        const compte=(cols[idxCompte]||"").toString().trim();
+        if(!compte.startsWith("6")) return;
+        const tiers=(cols[idxTiers]||"Inconnu").trim();
+        const infos=getInfosFournisseur(tiers);
+        let nif=(cols[idxNif]||"").trim(); if((!nif||nif==="-")&&infos) nif=infos.nif;
+        let statut=infos?infos.statut:"-";
+        let adresse=infos?infos.adresse:"-";
+        const debit=parseFloat((cols[idxDebit]||"0").toString().replace(",","."))||0;
+        const credit=parseFloat((cols[idxCredit]||"0").toString().replace(",","."))||0;
+        const key=tiers+"|"+nif;
+        if(!data[key]) data[key]={ fournisseur:tiers, nif, statut, adresse, total:0 };
+        data[key].total+=debit-credit;
+        totalGlobal+=debit-credit;
+      });
+      renderTable(data,totalGlobal);
+    }
+    if(file.name.endsWith(".csv")){
+      reader.onload=e=>{
+        const lines=e.target.result.split("\n").map(l=>l.trim()).filter(l=>l.length);
+        const header=lines[0].split(",");
+        const rows=lines.slice(1).map(l=>l.split(","));
+        processData(rows,header);
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload=e=>{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const json=XLSX.utils.sheet_to_json(ws,{header:1});
+        processData(json.slice(1),json[0]);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  function renderTable(data,total){
+    const tbody=document.querySelector("#resultsTable tbody");
+    tbody.innerHTML="";
+    Object.values(data).forEach(r=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${r.fournisseur}</td><td>${r.nif}</td><td>${r.statut}</td><td>${r.adresse}</td><td>${r.total.toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("grandTotal").textContent=total.toFixed(2);
+    document.getElementById("results").classList.remove("hidden");
+  }
+
+  function exportCSV(){
+    let csv="Fournisseur,NIF,Statut,Adresse,TotalHT\n";
+    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
+      const cols=r.querySelectorAll("td");
+      csv+=Array.from(cols).map(c=>c.innerText).join(",")+"\n";
+    });
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="declaration_DC.csv";a.click();
+  }
+
+  async function exportPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF("p","pt","a4");
+    const img=new Image(); img.src="logo.png";
+    doc.addImage(img,10,10,40,40);
+    doc.setFontSize(14);
+    doc.text("Déclaration DC - Résumé",60,30);
+    let y=70;
+    doc.setFontSize(10);
+    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT",10,y);
+    y+=20;
+    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
+      const line=Array.from(r.querySelectorAll("td")).map(c=>c.innerText).join(" | ");
+      if(y>780){doc.addPage();y=30;}
+      doc.text(line,10,y); y+=15;
+    });
+    doc.text("TOTAL : "+document.getElementById("grandTotal").textContent,10,y+20);
+    doc.save("declaration_DC.pdf");
+  }
+</script>
+</body>
+</html>
