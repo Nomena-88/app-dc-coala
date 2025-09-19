@@ -1,218 +1,295 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <title>Application DC - Gestion Tiers & Import Grand Livre</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Application DC — Gestion Tiers & Import Grand Livre</title>
-
-  <!-- Bootstrap 5 -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-
-  <!-- Dependencies: SheetJS (XLSX), jsPDF, jsPDF-AutoTable -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
   <style>
-    body { background: #f4f6fb; }
-    header.navbar { background: #003366; }
-    .navbar-brand, .navbar-brand:hover { color: #fff !important; }
-    .card { border-radius: 12px; }
-    .spinner-overlay{
-      position: fixed; inset:0; background: rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:1050; display:none;
-    }
-    .table-responsive { max-height: 56vh; overflow:auto; }
-    .small-muted { font-size: 0.85rem; color: #6c757d; }
+    body { background:#f4f4f4; }
+    .container-box { max-width: 1000px; margin: 2rem auto; background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);}
+    textarea { font-family: monospace; }
+    .hidden { display: none; }
+    .table thead { background:#003366; color:white; }
+    .btn-primary { background:#003366; border:none; }
+    .btn-primary:hover { background:#0055aa; }
+    .logo-img { height:40px; }
+    .top-actions { display:flex; justify-content:flex-end; margin-bottom:10px; gap:5px; }
   </style>
 </head>
-<body>
 
-<header>
-  <nav class="navbar navbar-expand-lg">
-    <div class="container">
-      <a class="navbar-brand" href="#">Application DC</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navMenu">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('home')">Accueil</a></li>
-          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('tiers')">Gestion Tiers</a></li>
-          <li class="nav-item"><a class="nav-link text-white" href="#" onclick="showSection('import')">Import Grand Livre</a></li>
-        </ul>
-        <button id="btnLogout" class="btn btn-outline-light ms-3 d-none" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Déconnexion</button>
-      </div>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark" style="background:#003366;">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <img src="logo.png" alt="Logo" class="logo-img me-2"> Application DC
+      </a>
     </div>
   </nav>
-</header>
 
-<main class="container my-4">
+  <!-- LOGIN -->
+  <div class="container-box" id="loginSection">
+    <h2>Connexion</h2>
+    <input type="text" id="username" class="form-control my-2" placeholder="Identifiant" />
+    <input type="password" id="password" class="form-control my-2" placeholder="Mot de passe" />
+    <button class="btn btn-primary w-100" onclick="login()">Se connecter</button>
+    <p id="loginError" style="color:red;"></p>
+  </div>
 
-  <!-- Spinner overlay -->
-  <div id="spinner" class="spinner-overlay">
-    <div class="text-center">
-      <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem"></div>
-      <div class="mt-2">Traitement en cours...</div>
+  <!-- GESTION TIERS -->
+  <div class="container-box hidden" id="fournisseursSection">
+    <div class="top-actions">
+      <button class="btn btn-outline-secondary" onclick="logout()">Déconnexion</button>
+    </div>
+    <h2>Gestion des Tiers</h2>
+    <form id="formFournisseur" class="row g-2">
+      <div class="col-md-3"><input type="text" id="inputRaison" class="form-control" placeholder="Raison Sociale" required></div>
+      <div class="col-md-2"><input type="text" id="inputNIF" class="form-control" placeholder="NIF"></div>
+      <div class="col-md-2"><input type="text" id="inputStatut" class="form-control" placeholder="Statut"></div>
+      <div class="col-md-3"><input type="text" id="inputAdresse" class="form-control" placeholder="Adresse"></div>
+      <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Ajouter</button></div>
+    </form>
+
+    <div class="mt-3">
+      <input type="text" id="searchInput" class="form-control" placeholder="🔍 Rechercher un tiers...">
+    </div>
+
+    <h3 class="mt-4">Liste des tiers enregistrés</h3>
+    <table class="table table-bordered mt-3" id="tableFournisseurs">
+      <thead>
+        <tr><th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="d-flex justify-content-between">
+      <button class="btn btn-secondary" id="prevPage">⬅ Précédent</button>
+      <span id="pageInfo" class="align-self-center"></span>
+      <button class="btn btn-secondary" id="nextPage">Suivant ➡</button>
+    </div>
+
+    <div class="mt-3">
+      <button class="btn btn-primary w-100" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
     </div>
   </div>
 
-  <!-- Login Section -->
-  <section id="loginSection" class="card p-4">
-    <h3>Connexion</h3>
-    <p class="small-muted">Identifiez-vous pour accéder à l'application.</p>
-
-    <div class="row g-2">
-      <div class="col-md-5">
-        <input id="username" class="form-control" placeholder="Identifiant" />
-      </div>
-      <div class="col-md-5">
-        <input id="password" type="password" class="form-control" placeholder="Mot de passe" />
-      </div>
-      <div class="col-md-2 d-grid">
-        <button class="btn btn-primary" onclick="login()"><i class="bi bi-lock-fill"></i> Se connecter</button>
-      </div>
+  <!-- IMPORT GL -->
+  <div class="container-box hidden" id="importSection">
+    <div class="top-actions">
+      <button class="btn btn-outline-secondary" onclick="backToTiers()">⬅ Retour à la gestion des tiers</button>
+      <button class="btn btn-outline-secondary" onclick="logout()">Déconnexion</button>
     </div>
-    <div class="mt-2">
-      <small id="loginError" class="text-danger"></small>
-      <small class="d-block mt-2">Compte par défaut : <code>admin</code> / <code>dc2025</code></small>
-    </div>
-  </section>
+    <h2>Import du grand livre</h2>
+    <p><b>Format attendu :</b> colonnes : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
+    <input type="file" id="csvFile" class="form-control mb-2" accept=".csv,.xlsx" />
+    <button class="btn btn-primary w-100" onclick="processFile()">Importer et calculer (classe 6)</button>
 
-  <!-- Home Section -->
-  <section id="homeSection" class="card p-4 mt-4 d-none">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>Bienvenue dans l'application DC</h3>
-      <button class="btn btn-outline-danger btn-sm" onclick="logout()">
-        <i class="bi bi-box-arrow-right"></i> Déconnexion
-      </button>
-    </div>
-    <p>Utilisez le menu pour gérer les tiers ou importer le grand livre. Cette version est une amélioration de ton code : recherche, édition/suppression des fournisseurs, exports CSV/XLSX/PDF, total global, et plus.</p>
-
-    <div class="row">
-      <div class="col-md-4">
-        <div class="card p-3 mb-3">
-          <h5><i class="bi bi-people-fill"></i> Tiers</h5>
-          <p class="small-muted">Ajouter, modifier, supprimer et rechercher des fournisseurs.</p>
-          <button class="btn btn-sm btn-primary" onclick="showSection('tiers')">Aller aux tiers</button>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card p-3 mb-3">
-          <h5><i class="bi bi-file-earmark-spreadsheet-fill"></i> Import Grand Livre</h5>
-          <p class="small-muted">Importer CSV/Excel exporté de Coala — calcule automatiquement les comptes de classe 6.</p>
-          <button class="btn btn-sm btn-primary" onclick="showSection('import')">Importer un fichier</button>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card p-3 mb-3">
-          <h5><i class="bi bi-download"></i> Exports</h5>
-          <p class="small-muted">Exporter les résultats en CSV, Excel ou PDF.</p>
-          <button class="btn btn-sm btn-primary" onclick="showSection('import')">Voir exports</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Gestion Tiers Section -->
-  <section id="tiersSection" class="card p-4 mt-4 d-none">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>Gestion des Tiers</h3>
-      <button class="btn btn-outline-secondary btn-sm" onclick="showSection('home')">⬅ Retour</button>
-    </div>
-
-    <input id="searchTiers" class="form-control form-control-sm mb-3" placeholder="Rechercher par raison sociale, NIF..." oninput="renderTiersTable()">
-
-    <form id="formFournisseur" class="row g-2 mt-3" onsubmit="handleTiersSubmit(event)">
-      <input type="hidden" id="editingIndex" />
-      <div class="col-md-4">
-        <input id="inputRaison" class="form-control" placeholder="Raison Sociale (obligatoire)" required />
-      </div>
-      <div class="col-md-2">
-        <input id="inputNIF" class="form-control" placeholder="NIF (numérique)" inputmode="numeric" />
-      </div>
-      <div class="col-md-3">
-        <input id="inputStatut" class="form-control" placeholder="Statut" />
-      </div>
-      <div class="col-md-3 d-flex gap-2">
-        <input id="inputAdresse" class="form-control" placeholder="Adresse" />
-        <button id="btnAdd" class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i> Ajouter</button>
-      </div>
-    </form>
-
-    <div class="table-responsive mt-3">
-      <table id="tableFournisseurs" class="table table-striped table-hover">
-        <thead class="table-primary">
-          <tr>
-            <th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th><th style="width:140px">Actions</th>
-          </tr>
+    <div id="results" class="hidden mt-4">
+      <h2>Tableau de déclaration (Canevas DC)</h2>
+      <table class="table table-bordered" id="resultsTable">
+        <thead>
+          <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Total HT</th></tr>
         </thead>
         <tbody></tbody>
+        <tfoot>
+          <tr><th colspan="4">TOTAL</th><th id="grandTotal"></th></tr>
+        </tfoot>
       </table>
+      <button class="btn btn-success" onclick="exportCSV()">⬇ Exporter en CSV</button>
+      <button class="btn btn-danger" onclick="exportPDF()">⬇ Exporter en PDF</button>
     </div>
-
-    <div class="mt-3 d-flex gap-2">
-      <button class="btn btn-outline-secondary" onclick="downloadFournisseursJSON()"><i class="bi bi-download"></i> Sauvegarder JSON</button>
-      <button class="btn btn-outline-secondary" onclick="importFournisseursJSON()"><i class="bi bi-upload"></i> Importer JSON</button>
-      <button class="btn btn-secondary ms-auto" onclick="showSection('import')">Passer à l'import Grand Livre</button>
-    </div>
-  </section>
-
-  <!-- Import Section -->
-  <section id="importSectionCard" class="card p-4 mt-4 d-none">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>Import du Grand Livre</h3>
-      <button class="btn btn-outline-secondary btn-sm" onclick="showSection('tiers')">⬅ Retour</button>
-    </div>
-    <small class="small-muted mb-3 d-block">Format CSV ou Excel : colonnes essentielles (Date, Compte, Tiers, NIF, Libelle, Debit, Credit)</small>
-
-    <div class="row g-2 align-items-center">
-      <div class="col-md-6">
-        <input id="csvFile" type="file" class="form-control" accept=".csv,.xlsx,.xls" />
-      </div>
-      <div class="col-md-6 d-flex gap-2">
-        <button class="btn btn-primary" onclick="processFile()"><i class="bi bi-file-earmark-arrow-up"></i> Importer et calculer (classe 6)</button>
-        <button class="btn btn-outline-secondary" onclick="clearResults()"><i class="bi bi-trash"></i> Réinitialiser résultats</button>
-      </div>
-    </div>
-
-    <div id="results" class="mt-4 d-none">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h5>Tableau de déclaration (Canevas DC)</h5>
-        <div>
-          <button class="btn btn-sm btn-outline-primary me-1" onclick="exportCSV()"><i class="bi bi-filetype-csv"></i> CSV</button>
-          <button class="btn btn-sm btn-outline-success me-1" onclick="exportXLSX()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="exportPDF()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
-        </div>
-      </div>
-
-      <div class="table-responsive">
-        <table id="resultsTable" class="table table-bordered">
-          <thead class="table-dark">
-            <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th class="text-end">Total HT (Débit - Crédit)</th></tr>
-          </thead>
-          <tbody></tbody>
-          <tfoot>
-            <tr class="table-secondary">
-              <td colspan="4" class="text-end"><strong>Total global :</strong></td>
-              <td id="totalGlobal" class="text-end"><strong>0.00</strong></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <footer class="mt-4 small text-muted">Version améliorée • Client-side demo (localStorage). Pour production, sécuriser authentification et déplacer logic côté serveur.</footer>
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </div>
 
 <script>
-// === JS COMPLET (login, logout, gestion tiers, import, exports) ===
+  let fournisseursArray = JSON.parse(localStorage.getItem("fournisseursArray") || "[]");
+  let currentPage = 1;
+  const itemsPerPage = 5;
 
-// (le JS est identique à ton code existant)
+  function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    if(user === "admin" && pass === "dc2025"){
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("fournisseursSection").classList.remove("hidden");
+      majTableFournisseurs();
+    }
+    else document.getElementById("loginError").textContent = "Identifiants invalides.";
+  }
+
+  function logout(){
+    document.getElementById("fournisseursSection").classList.add("hidden");
+    document.getElementById("importSection").classList.add("hidden");
+    document.getElementById("loginSection").classList.remove("hidden");
+  }
+
+  function backToTiers(){
+    document.getElementById("importSection").classList.add("hidden");
+    document.getElementById("fournisseursSection").classList.remove("hidden");
+  }
+
+  document.getElementById("formFournisseur").addEventListener("submit", function(e){
+    e.preventDefault();
+    const raison = document.getElementById("inputRaison").value.trim();
+    if(!raison) return alert("Raison sociale obligatoire.");
+    const nif = document.getElementById("inputNIF").value.trim();
+    const statut = document.getElementById("inputStatut").value.trim();
+    const adresse = document.getElementById("inputAdresse").value.trim();
+    fournisseursArray.push({ raisonSociale: raison, nif, statut, adresse });
+    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
+    majTableFournisseurs();
+    e.target.reset();
+  });
+
+  function majTableFournisseurs(){
+    const tbody = document.querySelector("#tableFournisseurs tbody");
+    tbody.innerHTML = "";
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    let filtered = fournisseursArray.filter(f => f.raisonSociale.toLowerCase().includes(search));
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if(currentPage>totalPages) currentPage=totalPages||1;
+    const start = (currentPage-1)*itemsPerPage;
+    const pageItems = filtered.slice(start,start+itemsPerPage);
+    pageItems.forEach((f,i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${f.raisonSociale}</td>
+        <td>${f.nif||""}</td>
+        <td>${f.statut||""}</td>
+        <td>${f.adresse||""}</td>
+        <td>
+          <button class="btn btn-sm btn-warning" onclick="editFournisseur(${start+i})">✏ Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteFournisseur(${start+i})">🗑 Supprimer</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("pageInfo").textContent = `Page ${currentPage}/${totalPages||1}`;
+  }
+
+  function editFournisseur(index){
+    const f = fournisseursArray[index];
+    document.getElementById("inputRaison").value=f.raisonSociale;
+    document.getElementById("inputNIF").value=f.nif;
+    document.getElementById("inputStatut").value=f.statut;
+    document.getElementById("inputAdresse").value=f.adresse;
+    deleteFournisseur(index);
+  }
+
+  function deleteFournisseur(index){
+    fournisseursArray.splice(index,1);
+    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
+    majTableFournisseurs();
+  }
+
+  document.getElementById("searchInput").addEventListener("input", ()=>{currentPage=1;majTableFournisseurs();});
+  document.getElementById("prevPage").addEventListener("click", ()=>{if(currentPage>1){currentPage--;majTableFournisseurs();}});
+  document.getElementById("nextPage").addEventListener("click", ()=>{currentPage++;majTableFournisseurs();});
+
+  function afficherImportSection(){
+    document.getElementById("fournisseursSection").classList.add("hidden");
+    document.getElementById("importSection").classList.remove("hidden");
+  }
+
+  function getInfosFournisseur(raisonSociale){
+    return fournisseursArray.find(f=>f.raisonSociale===raisonSociale) || null;
+  }
+
+  function processFile(){
+    const file=document.getElementById("csvFile").files[0];
+    if(!file){alert("Veuillez importer un fichier CSV ou Excel.");return;}
+    const reader=new FileReader();
+    function processData(rows,header){
+      const idxCompte=header.findIndex(h=>h.toLowerCase().includes("compte"));
+      const idxTiers=header.findIndex(h=>h.toLowerCase().includes("tiers"));
+      const idxNif=header.findIndex(h=>h.toLowerCase().includes("nif"));
+      const idxDebit=header.findIndex(h=>h.toLowerCase().includes("debit"));
+      const idxCredit=header.findIndex(h=>h.toLowerCase().includes("credit"));
+      if(idxCompte===-1||idxTiers===-1||idxNif===-1||idxDebit===-1||idxCredit===-1){
+        alert("Le fichier doit contenir : Compte, Tiers, NIF, Débit, Crédit.");return;
+      }
+      let data={}, totalGlobal=0;
+      rows.forEach(cols=>{
+        if(cols.length<header.length) return;
+        const compte=(cols[idxCompte]||"").toString().trim();
+        if(!compte.startsWith("6")) return;
+        const tiers=(cols[idxTiers]||"Inconnu").trim();
+        const infos=getInfosFournisseur(tiers);
+        let nif=(cols[idxNif]||"").trim(); if((!nif||nif==="-")&&infos) nif=infos.nif;
+        let statut=infos?infos.statut:"-";
+        let adresse=infos?infos.adresse:"-";
+        const debit=parseFloat((cols[idxDebit]||"0").toString().replace(",","."))||0;
+        const credit=parseFloat((cols[idxCredit]||"0").toString().replace(",","."))||0;
+        const key=tiers+"|"+nif;
+        if(!data[key]) data[key]={ fournisseur:tiers, nif, statut, adresse, total:0 };
+        data[key].total+=debit-credit;
+        totalGlobal+=debit-credit;
+      });
+      renderTable(data,totalGlobal);
+    }
+    if(file.name.endsWith(".csv")){
+      reader.onload=e=>{
+        const lines=e.target.result.split("\n").map(l=>l.trim()).filter(l=>l.length);
+        const header=lines[0].split(",");
+        const rows=lines.slice(1).map(l=>l.split(","));
+        processData(rows,header);
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload=e=>{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const json=XLSX.utils.sheet_to_json(ws,{header:1});
+        processData(json.slice(1),json[0]);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  function renderTable(data,total){
+    const tbody=document.querySelector("#resultsTable tbody");
+    tbody.innerHTML="";
+    Object.values(data).forEach(r=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${r.fournisseur}</td><td>${r.nif}</td><td>${r.statut}</td><td>${r.adresse}</td><td>${r.total.toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById("grandTotal").textContent=total.toFixed(2);
+    document.getElementById("results").classList.remove("hidden");
+  }
+
+  function exportCSV(){
+    let csv="Fournisseur,NIF,Statut,Adresse,TotalHT\n";
+    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
+      const cols=r.querySelectorAll("td");
+      csv+=Array.from(cols).map(c=>c.innerText).join(",")+"\n";
+    });
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="declaration_DC.csv";a.click();
+  }
+
+  async function exportPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF("p","pt","a4");
+    const img=new Image(); img.src="logo.png";
+    doc.addImage(img,10,10,40,40);
+    doc.setFontSize(14);
+    doc.text("Déclaration DC - Résumé",60,30);
+    let y=70;
+    doc.setFontSize(10);
+    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT",10,y);
+    y+=20;
+    document.querySelectorAll("#resultsTable tbody tr").forEach(r=>{
+      const line=Array.from(r.querySelectorAll("td")).map(c=>c.innerText).join(" | ");
+      if(y>780){doc.addPage();y=30;}
+      doc.text(line,10,y); y+=15;
+    });
+    doc.text("TOTAL : "+document.getElementById("grandTotal").textContent,10,y+20);
+    doc.save("declaration_DC.pdf");
+  }
 </script>
-
 </body>
 </html>
