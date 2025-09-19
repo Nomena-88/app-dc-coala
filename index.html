@@ -69,43 +69,65 @@
 
     // 📝 Lecture du fichier CSV
     function processFile() {
-      const file = document.getElementById("csvFile").files[0];
-      if (!file) { alert("Veuillez importer un fichier CSV exporté de Coala."); return; }
+  const file = document.getElementById("csvFile").files[0];
+  if (!file) { alert("Veuillez importer un fichier CSV ou Excel exporté de Coala."); return; }
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
-        const header = lines[0].split(",");
-        
-        // On attend les colonnes : Date,Compte,Tiers,NIF,Libelle,Debit,Credit
-        const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
-        const idxNif   = header.findIndex(h => h.toLowerCase().includes("nif"));
-        const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
-        const idxCredit= header.findIndex(h => h.toLowerCase().includes("credit"));
+  const reader = new FileReader();
 
-        if (idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
-          alert("Le fichier CSV ne contient pas les colonnes attendues (Tiers, NIF, Débit, Crédit).");
-          return;
-        }
+  // Fonction pour traiter les données extraites (appelée pour CSV ou Excel)
+  function processData(lines, header) {
+    const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
+    const idxNif   = header.findIndex(h => h.toLowerCase().includes("nif"));
+    const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
+    const idxCredit= header.findIndex(h => h.toLowerCase().includes("credit"));
 
-        const data = {};
-        lines.slice(1).forEach(line => {
-          const cols = line.split(",");
-          if (cols.length < header.length) return; // ignore lignes vides
-          const tiers = cols[idxTiers].trim() || "Inconnu";
-          const nif   = cols[idxNif].trim()   || "-";
-          const debit = parseFloat(cols[idxDebit].replace(",", ".")) || 0;
-          const credit= parseFloat(cols[idxCredit].replace(",", ".")) || 0;
-
-          const key = tiers + "|" + nif;
-          if (!data[key]) data[key] = { fournisseur: tiers, nif, total: 0 };
-          data[key].total += debit - credit; // ⚖ Somme Débit - Crédit
-        });
-
-        renderTable(data);
-      };
-      reader.readAsText(file);
+    if (idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
+      alert("Le fichier ne contient pas les colonnes attendues (Tiers, NIF, Débit, Crédit).");
+      return;
     }
+
+    const data = {};
+    lines.forEach(cols => {
+      if (cols.length < header.length) return; // ignore les lignes incomplètes
+      const tiers = (cols[idxTiers] || "Inconnu").trim();
+      const nif   = (cols[idxNif] || "-").trim();
+      const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
+      const credit= parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
+
+      const key = tiers + "|" + nif;
+      if (!data[key]) data[key] = { fournisseur: tiers, nif, total: 0 };
+      data[key].total += debit - credit;
+    });
+
+    renderTable(data);
+  }
+
+  // Lecture fichier selon type
+  if (file.name.endsWith(".csv")) {
+    reader.onload = function(e) {
+      const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
+      const header = lines[0].split(",");
+      const rows = lines.slice(1).map(line => line.split(","));
+      processData(rows, header);
+    };
+    reader.readAsText(file);
+  } else if (file.name.endsWith(".xlsx")) {
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // array of arrays
+      const header = json[0];
+      const rows = json.slice(1);
+      processData(rows, header);
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    alert("Format de fichier non supporté, veuillez importer un fichier CSV ou Excel (.xlsx).");
+  }
+}
+
 
     // 📊 Affichage du tableau
     function renderTable(data) {
