@@ -1,1 +1,18 @@
+body { background: #f4f6fb; transition: background 0.3s, color 0.3s; }
+body.dark-mode { background: #121212; color: #e0e0e0; }
+
+.navbar { border-bottom: 1px solid rgba(255,255,255,0.2); }
+.navbar-brand, .navbar-brand:hover { color: #fff; }
+
+.card { border-radius: 12px; }
+.spinner-overlay{
+  position: fixed; inset:0; background: rgba(255,255,255,0.7);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1050; display:none;
+}
+body.dark-mode .card { background: #1e1e1e; color: #e0e0e0; }
+body.dark-mode .table { color: #e0e0e0; }
+.table-responsive { max-height: 56vh; overflow:auto; }
+.small-muted { font-size: 0.85rem; color: #6c757d; }
+body.dark-mode .small-muted { color: #aaa; }
 
