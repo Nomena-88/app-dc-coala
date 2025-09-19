@@ -2,34 +2,31 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Application DC - Prototype Coala</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application DC Unifiée</title>
+  <meta name="viewport" content="width=device-width" />
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background:#f4f4f4; }
     header { background:#003366; color:white; padding:1rem; text-align:center; }
-    .container { max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px; }
+    .container { max-width: 900px; margin: 2rem auto; background: white; padding: 1rem; border-radius: 5px; }
     h2, h3 { color:#003366; }
-    input, button, textarea { margin:0.3rem 0; padding:0.5rem; width: 100%; }
+    input, button, textarea { margin:0.3rem 0; padding:0.5rem; width: 100%; box-sizing: border-box; }
     textarea { font-family: monospace; }
-    table { width:100%; border-collapse:collapse; margin-top:1rem; }
-    th, td { border:1px solid #ccc; padding:0.5rem; text-align:left; }
-    th { background:#003366; color:white; }
-    .hidden { display:none; }
-    .btn { background:#003366; color:white; border:none; cursor:pointer; border-radius:3px; width: auto; padding:0.5rem 1rem; margin-top: 1rem; }
-    .btn:hover { background:#0055aa; }
-    .form-inline {display: flex; gap: 10px; margin-bottom: 10px;}
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    th { background: #003366; color: white; }
+    .hidden { display: none; }
+    .btn { background: #003366; color: white; border: none; cursor: pointer; border-radius: 3px; padding: 0.5rem 1rem; margin-top: 1rem; }
+    .btn:hover { background: #0055aa; }
+    .form-inline { display: flex; gap: 10px; margin-bottom: 10px; }
     .form-inline > input { flex-grow: 1; }
   </style>
-
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 </head>
+
 <body>
 
-<header>
-  <h1>Application - Déclaration DC (Export Sage Coala)</h1>
-</header>
+<header><h1>Application DC Unifiée - Gestion Founisseurs & Import Grand Livre</h1></header>
 
 <div class="container" id="loginSection">
   <h2>Connexion</h2>
@@ -40,39 +37,31 @@
 </div>
 
 <div class="container hidden" id="fournisseursSection">
-  <h2>Gestion des fournisseurs</h2>
-  <p>Editez la base des fournisseurs avec Raison sociale, NIF, Statut, Adresse (format JSON) :</p>
-  <textarea id="fournisseursJSON" rows="6" placeholder='Exemple : [{"raisonSociale":"Société A","nif":"123456789","statut":"Taxable","adresse":"12 rue Exemple"}]'></textarea>
-  <button class="btn" onclick="enregistrerFournisseurs()">Enregistrer fournisseurs</button>
-  <p id="msgFournisseurs" style="color:green;"></p>
+  <h2>Gestion des Fournisseurs</h2>
+
+  <form id="formFournisseur">
+    <div class="form-inline">
+      <input type="text" id="inputRaison" placeholder="Raison Sociale" required />
+      <input type="text" id="inputNIF" placeholder="NIF" />
+      <input type="text" id="inputStatut" placeholder="Statut" />
+      <input type="text" id="inputAdresse" placeholder="Adresse" />
+      <button class="btn" type="submit" style="flex-grow: 0;">Ajouter</button>
+    </div>
+  </form>
 
   <h3>Liste des fournisseurs enregistrés</h3>
-  <table id="tableFournisseurs" border="1" style="width:100%; border-collapse: collapse;">
+  <table id="tableFournisseurs">
     <thead>
-      <tr>
-        <th>Raison Sociale</th>
-        <th>NIF</th>
-        <th>Statut</th>
-        <th>Adresse</th>
-      </tr>
+      <tr><th>Raison Sociale</th><th>NIF</th><th>Statut</th><th>Adresse</th></tr>
     </thead>
     <tbody></tbody>
   </table>
-
-  <h3>Ajouter un fournisseur</h3>
-  <div class="form-inline">
-    <input type="text" id="inputRaison" placeholder="Raison Sociale" />
-    <input type="text" id="inputNIF" placeholder="NIF" />
-    <input type="text" id="inputStatut" placeholder="Statut" />
-    <input type="text" id="inputAdresse" placeholder="Adresse" />
-    <button class="btn" style="flex-grow: 0;" onclick="ajouterFournisseur()">Ajouter</button>
-  </div>
 
   <button class="btn" onclick="afficherImportSection()">Passer à l'import Grand Livre</button>
 </div>
 
 <div class="container hidden" id="importSection">
-  <h2>Import du grand livre (Export Sage Coala)</h2>
+  <h2>Import du grand livre</h2>
   <p><b>Format attendu CSV ou Excel :</b> colonnes essentielles : Date, Compte, Tiers, NIF, Libelle, Debit, Credit</p>
   <input type="file" id="csvFile" accept=".csv,.xlsx" />
   <button class="btn" onclick="processFile()">Importer et calculer (classe 6)</button>
@@ -81,13 +70,7 @@
     <h2>Tableau de déclaration (Canevas DC)</h2>
     <table id="resultsTable">
       <thead>
-        <tr>
-          <th>Fournisseur (Tiers)</th>
-          <th>NIF</th>
-          <th>Statut</th>
-          <th>Adresse</th>
-          <th>Total HT (Débit - Crédit)</th>
-        </tr>
+        <tr><th>Fournisseur (Tiers)</th><th>NIF</th><th>Statut</th><th>Adresse</th><th>Total HT (Débit - Crédit)</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -97,48 +80,44 @@
 </div>
 
 <script>
-  let fournisseursArray = [];
+  let fournisseursArray = JSON.parse(localStorage.getItem("fournisseursArray") || "[]");
 
   function login() {
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
-    if (user === "admin" && pass === "dc2025") {
+    if(user === "admin" && pass === "dc2025"){
       document.getElementById("loginSection").classList.add("hidden");
-      const stored = localStorage.getItem("fournisseursArray");
-      if (stored) {
-        fournisseursArray = JSON.parse(stored);
-        document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursArray, null, 2);
-        majTableFournisseurs();
-      }
       document.getElementById("fournisseursSection").classList.remove("hidden");
-    } else {
+      majTableFournisseurs();
+    }
+    else {
       document.getElementById("loginError").textContent = "Identifiants invalides.";
     }
   }
 
-  function enregistrerFournisseurs() {
-    try {
-      const text = document.getElementById("fournisseursJSON").value.trim();
-      if (!text) {
-        alert("Veuillez saisir un JSON valide pour la base des fournisseurs.");
-        return;
-      }
-      fournisseursArray = JSON.parse(text);
-      localStorage.setItem("fournisseursArray", text);
-      document.getElementById("msgFournisseurs").textContent = "Fournisseurs enregistrés avec succès.";
-      majTableFournisseurs();
-    } catch (e) {
-      alert("Erreur JSON: " + e.message);
-    }
-  }
+  const form = document.getElementById("formFournisseur");
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    const raison = document.getElementById("inputRaison").value.trim();
+    if(!raison) return alert("Raison sociale obligatoire.");
+    const nif = document.getElementById("inputNIF").value.trim();
+    const statut = document.getElementById("inputStatut").value.trim();
+    const adresse = document.getElementById("inputAdresse").value.trim();
 
-  function majTableFournisseurs() {
+    fournisseursArray.push({ raisonSociale: raison, nif, statut, adresse });
+    localStorage.setItem("fournisseursArray", JSON.stringify(fournisseursArray));
+    majTableFournisseurs();
+
+    form.reset();
+  });
+
+  function majTableFournisseurs(){
     const tbody = document.querySelector("#tableFournisseurs tbody");
     tbody.innerHTML = "";
     fournisseursArray.forEach(f => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${f.raisonSociale || ""}</td>
+        <td>${f.raisonSociale}</td>
         <td>${f.nif || ""}</td>
         <td>${f.statut || ""}</td>
         <td>${f.adresse || ""}</td>
@@ -147,125 +126,95 @@
     });
   }
 
-  function ajouterFournisseur() {
-    const raison = document.getElementById("inputRaison").value.trim();
-    const nif = document.getElementById("inputNIF").value.trim();
-    const statut = document.getElementById("inputStatut").value.trim();
-    const adresse = document.getElementById("inputAdresse").value.trim();
-
-    if (!raison) {
-      alert("La raison sociale doit être renseignée.");
-      return;
-    }
-
-    // Ajout à la liste en mémoire
-    fournisseursArray.push({ raisonSociale: raison, nif: nif || "-", statut: statut || "-", adresse: adresse || "-" });
-
-    // Mise à jour textarea JSON
-    document.getElementById("fournisseursJSON").value = JSON.stringify(fournisseursArray, null, 2);
-
-    // Rafraichir le tableau
-    majTableFournisseurs();
-
-    // Vide les champs de saisie
-    document.getElementById("inputRaison").value = "";
-    document.getElementById("inputNIF").value = "";
-    document.getElementById("inputStatut").value = "";
-    document.getElementById("inputAdresse").value = "";
-
-    document.getElementById("msgFournisseurs").textContent = "Fournisseur ajouté dans la liste (pensez à enregistrer).";
-  }
-
-  function afficherImportSection() {
+  function afficherImportSection(){
     document.getElementById("fournisseursSection").classList.add("hidden");
     document.getElementById("importSection").classList.remove("hidden");
   }
 
-  function getInfosFournisseur(raisonSociale) {
-    return fournisseursArray.find(f => f.raisonSociale === raisonSociale) || null;
+  function getInfosFournisseur(raisonSociale){
+    return fournisseursArray.find(f=>f.raisonSociale===raisonSociale) || null;
   }
 
-  function processFile() {
+  function processFile(){
     const file = document.getElementById("csvFile").files[0];
-    if (!file) {
+    if(!file){
       alert("Veuillez importer un fichier CSV ou Excel exporté de Coala.");
       return;
     }
-
     const reader = new FileReader();
 
-    function processData(lines, header) {
-      const idxCompte = header.findIndex(h => h.toLowerCase().includes("compte"));
-      const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
-      const idxNif = header.findIndex(h => h.toLowerCase().includes("nif"));
-      const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
-      const idxCredit = header.findIndex(h => h.toLowerCase().includes("credit"));
+    function processData(lines, header){
+      const idxCompte=header.findIndex(h=>h.toLowerCase().includes("compte"));
+      const idxTiers=header.findIndex(h=>h.toLowerCase().includes("tiers"));
+      const idxNif=header.findIndex(h=>h.toLowerCase().includes("nif"));
+      const idxDebit=header.findIndex(h=>h.toLowerCase().includes("debit"));
+      const idxCredit=header.findIndex(h=>h.toLowerCase().includes("credit"));
 
-      if (idxCompte === -1 || idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
+      if(idxCompte===-1||idxTiers===-1||idxNif===-1||idxDebit===-1||idxCredit===-1){
         alert("Le fichier doit contenir les colonnes : Compte, Tiers, NIF, Débit, Crédit.");
         return;
       }
 
       let data = {};
 
-      lines.forEach(cols => {
-        if (cols.length < header.length) return;
-
+      lines.forEach(cols=>{
+        if(cols.length<header.length) return;
         const compte = (cols[idxCompte] || "").toString().trim();
-        if (!compte.startsWith("6")) return;
+        if(!compte.startsWith("6")) return;
 
         const tiers = (cols[idxTiers] || "Inconnu").trim();
-
         const infos = getInfosFournisseur(tiers);
 
-        let nif = (cols[idxNif] || "").trim();
-        if ((!nif || nif === "-") && infos) nif = infos.nif;
+        let nif = (cols[idxNif]||"").trim();
+        if((!nif||nif==="-") && infos) nif=infos.nif;
 
         let statut = infos ? infos.statut : "-";
         let adresse = infos ? infos.adresse : "-";
 
-        const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
-        const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
+        const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", "."))||0;
+        const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", "."))||0;
 
         const key = tiers + "|" + nif;
-        if (!data[key]) data[key] = { fournisseur: tiers, nif, statut, adresse, total: 0 };
+        if(!data[key]) data[key]={ fournisseur: tiers, nif, statut, adresse, total: 0 };
         data[key].total += debit - credit;
       });
 
       renderTable(data);
     }
 
-    if (file.name.endsWith(".csv")) {
-      reader.onload = function (e) {
-        const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
+    if(file.name.endsWith(".csv")){
+      reader.onload = function(e){
+        const lines = e.target.result.split("\n").map(l=>l.trim()).filter(l=>l.length);
         const header = lines[0].split(",");
-        const rows = lines.slice(1).map(line => line.split(","));
+        const rows = lines.slice(1).map(line=>line.split(","));
         processData(rows, header);
       };
       reader.readAsText(file);
-    } else if (file.name.endsWith(".xlsx")) {
-      reader.onload = function (e) {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        const header = json[0];
-        const rows = json.slice(1);
+    }
+    else if(file.name.endsWith(".xlsx")){
+      reader.onload = function(e){
+        const data=new Uint8Array(e.target.result);
+        const workbook=XLSX.read(data,{type:"array"});
+        const sheetName=workbook.SheetNames[0];
+        const worksheet=workbook.Sheets[sheetName];
+        const json=XLSX.utils.sheet_to_json(worksheet,{header:1});
+        const header=json[0];
+        const rows=json.slice(1);
         processData(rows, header);
       };
       reader.readAsArrayBuffer(file);
-    } else {
+    }
+    else{
       alert("Format non supporté, veuillez importer un CSV ou un Excel.");
     }
   }
 
-  function renderTable(data) {
-    const tbody = document.querySelector("#resultsTable tbody");
-    tbody.innerHTML = "";
-    Object.values(data).forEach(row => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
+  function renderTable(data){
+    const tbody=document.querySelector("#resultsTable tbody");
+    tbody.innerHTML="";
+    Object.values(data).forEach(row=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`
         <td>${row.fournisseur}</td>
         <td>${row.nif}</td>
         <td>${row.statut}</td>
@@ -277,38 +226,38 @@
     document.getElementById("results").classList.remove("hidden");
   }
 
-  function exportCSV() {
-    let csv = "Fournisseur,NIF,Statut,Adresse,TotalHT\n";
-    const rows = document.querySelectorAll("#resultsTable tbody tr");
-    rows.forEach(r => {
-      const cols = r.querySelectorAll("td");
-      csv += Array.from(cols).map(c => c.innerText).join(",") + "\n";
+  function exportCSV(){
+    let csv="Fournisseur,NIF,Statut,Adresse,TotalHT\n";
+    const rows=document.querySelectorAll("#resultsTable tbody tr");
+    rows.forEach(r=>{
+      const cols=r.querySelectorAll("td");
+      csv+=Array.from(cols).map(c=>c.innerText).join(",")+"\n";
     });
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "declaration_DC.csv";
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="declaration_DC.csv";
     a.click();
   }
 
-  async function exportPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+  async function exportPDF(){
+    const { jsPDF }=window.jspdf;
+    const doc=new jsPDF();
     doc.setFontSize(14);
-    doc.text("Déclaration DC - Résumé", 10, 10);
-    let y = 25;
+    doc.text("Déclaration DC - Résumé",10,10);
+    let y=25;
     doc.setFontSize(10);
-    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT", 10, 20);
-    const rows = document.querySelectorAll("#resultsTable tbody tr");
-    rows.forEach(r => {
-      const cols = r.querySelectorAll("td");
-      const line = Array.from(cols).map(c => c.innerText).join(" | ");
-      if (y > 280) {
+    doc.text("Fournisseur | NIF | Statut | Adresse | TotalHT",10,20);
+    const rows=document.querySelectorAll("#resultsTable tbody tr");
+    rows.forEach(r=>{
+      const cols=r.querySelectorAll("td");
+      const line=Array.from(cols).map(c=>c.innerText).join(" | ");
+      if(y>280){
         doc.addPage();
-        y = 10;
+        y=10;
       }
-      doc.text(line, 10, y);
-      y += 10;
+      doc.text(line,10,y);
+      y+=10;
     });
     doc.save("declaration_DC.pdf");
   }
