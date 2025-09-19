@@ -1,181 +1,84 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>Application DC - Prototype Coala</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {font-family: Arial, sans-serif; margin: 0; background:#f4f4f4;}
-    header {background:#003366; color:white; padding:1rem; text-align:center;}
-    .container {max-width: 900px; margin:2rem auto; background:white; padding:1rem; border-radius:5px;}
-    h2 {color:#003366;}
-    input, button {margin:0.5rem 0; padding:0.5rem;}
-    table {width:100%; border-collapse:collapse; margin-top:1rem;}
-    th, td {border:1px solid #ccc; padding:0.5rem; text-align:center;}
-    th {background:#003366; color:white;}
-    .hidden {display:none;}
-    .btn {background:#003366; color:white; border:none; cursor:pointer; border-radius:3px;}
-    .btn:hover {background:#0055aa;}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>Application - Déclaration DC (Export Sage Coala)</h1>
-  </header>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-  <div class="container" id="loginSection">
-    <h2>Connexion</h2>
-    <input type="text" id="username" placeholder="Identifiant"><br>
-    <input type="password" id="password" placeholder="Mot de passe"><br>
-    <button class="btn" onclick="login()">Se connecter</button>
-    <p id="loginError" style="color:red;"></p>
-  </div>
-
-  <div class="container hidden" id="appSection">
-    <h2>Import du grand livre (Export Sage Coala)</h2>
-    <p><b>Format attendu CSV :</b> Date,Compte,Tiers,NIF,Libelle,Debit,Credit</p>
-    <input type="file" id="csvFile" accept=".csv"><br>
-    <button class="btn" onclick="processFile()">Importer et calculer</button>
-    <div id="results" class="hidden">
-      <h2>Tableau de déclaration (Canevas DC)</h2>
-      <table id="resultsTable">
-        <thead>
-          <tr>
-            <th>Fournisseur (Tiers)</th>
-            <th>NIF</th>
-            <th>Total HT (Débit - Crédit)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <button class="btn" onclick="exportCSV()">Exporter en CSV</button>
-      <button class="btn" onclick="exportPDF()">Exporter en PDF</button>
-    </div>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
-    // 🔐 Connexion fictive
-    function login() {
-      const user = document.getElementById("username").value;
-      const pass = document.getElementById("password").value;
-      if (user === "admin" && pass === "dc2025") {
-        document.getElementById("loginSection").classList.add("hidden");
-        document.getElementById("appSection").classList.remove("hidden");
-      } else {
-        document.getElementById("loginError").textContent = "Identifiants invalides.";
-      }
-    }
-
-    // 📝 Lecture du fichier CSV
-    function processFile() {
-  const file = document.getElementById("csvFile").files[0];
-  if (!file) { alert("Veuillez importer un fichier CSV ou Excel exporté de Coala."); return; }
-
-  const reader = new FileReader();
-
-  // Fonction pour traiter les données extraites (appelée pour CSV ou Excel)
-  function processData(lines, header) {
-    const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
-    const idxNif   = header.findIndex(h => h.toLowerCase().includes("nif"));
-    const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
-    const idxCredit= header.findIndex(h => h.toLowerCase().includes("credit"));
-
-    if (idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
-      alert("Le fichier ne contient pas les colonnes attendues (Tiers, NIF, Débit, Crédit).");
+<script>
+  function processFile() {
+    const file = document.getElementById("csvFile").files[0];
+    if (!file) {
+      alert("Veuillez importer un fichier CSV ou Excel exporté de Coala.");
       return;
     }
 
-    const data = {};
-    lines.forEach(cols => {
-      if (cols.length < header.length) return; // ignore les lignes incomplètes
-      const tiers = (cols[idxTiers] || "Inconnu").trim();
-      const nif   = (cols[idxNif] || "-").trim();
-      const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
-      const credit= parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
+    const reader = new FileReader();
 
-      const key = tiers + "|" + nif;
-      if (!data[key]) data[key] = { fournisseur: tiers, nif, total: 0 };
-      data[key].total += debit - credit;
+    function processData(lines, header) {
+      const idxCompte = header.findIndex(h => h.toLowerCase().includes("compte"));
+      const idxTiers = header.findIndex(h => h.toLowerCase().includes("tiers"));
+      const idxNif = header.findIndex(h => h.toLowerCase().includes("nif"));
+      const idxDebit = header.findIndex(h => h.toLowerCase().includes("debit"));
+      const idxCredit = header.findIndex(h => h.toLowerCase().includes("credit"));
+
+      if (idxCompte === -1 || idxTiers === -1 || idxNif === -1 || idxDebit === -1 || idxCredit === -1) {
+        alert("Le fichier doit contenir les colonnes suivantes : Compte, Tiers, NIF, Débit, Crédit.");
+        return;
+      }
+
+      const data = {};
+      lines.forEach(cols => {
+        if (cols.length < header.length) return;
+
+        const compte = (cols[idxCompte] || "").toString().trim();
+        if (!compte.startsWith("6")) return; // Filtrage : uniquement classe 6
+
+        const tiers = (cols[idxTiers] || "Inconnu").trim();
+        const nif = (cols[idxNif] || "-").trim();
+        const debit = parseFloat((cols[idxDebit] || "0").toString().replace(",", ".")) || 0;
+        const credit = parseFloat((cols[idxCredit] || "0").toString().replace(",", ".")) || 0;
+
+        const key = tiers + "|" + nif;
+        if (!data[key]) data[key] = { fournisseur: tiers, nif, total: 0 };
+        data[key].total += debit - credit;
+      });
+
+      renderTable(data);
+    }
+
+    if (file.name.endsWith(".csv")) {
+      reader.onload = function (e) {
+        const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
+        const header = lines[0].split(",");
+        const rows = lines.slice(1).map(line => line.split(","));
+        processData(rows, header);
+      };
+      reader.readAsText(file);
+    } else if (file.name.endsWith(".xlsx")) {
+      reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const header = json[0];
+        const rows = json.slice(1);
+        processData(rows, header);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert("Format de fichier non supporté, veuillez importer un fichier CSV ou Excel (.xlsx).");
+    }
+  }
+
+  function renderTable(data) {
+    const tbody = document.querySelector("#resultsTable tbody");
+    tbody.innerHTML = "";
+    Object.values(data).forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.fournisseur}</td>
+        <td>${row.nif}</td>
+        <td>${row.total.toFixed(2)}</td>
+      `;
+      tbody.appendChild(tr);
     });
-
-    renderTable(data);
+    document.getElementById("results").classList.remove("hidden");
   }
-
-  // Lecture fichier selon type
-  if (file.name.endsWith(".csv")) {
-    reader.onload = function(e) {
-      const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l.length);
-      const header = lines[0].split(",");
-      const rows = lines.slice(1).map(line => line.split(","));
-      processData(rows, header);
-    };
-    reader.readAsText(file);
-  } else if (file.name.endsWith(".xlsx")) {
-    reader.onload = function(e) {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); // array of arrays
-      const header = json[0];
-      const rows = json.slice(1);
-      processData(rows, header);
-    };
-    reader.readAsArrayBuffer(file);
-  } else {
-    alert("Format de fichier non supporté, veuillez importer un fichier CSV ou Excel (.xlsx).");
-  }
-}
-
-
-    // 📊 Affichage du tableau
-    function renderTable(data) {
-      const tbody = document.querySelector("#resultsTable tbody");
-      tbody.innerHTML = "";
-      Object.values(data).forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.fournisseur}</td>
-          <td>${row.nif}</td>
-          <td>${row.total.toFixed(2)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-      document.getElementById("results").classList.remove("hidden");
-    }
-
-    // 💾 Export CSV
-    function exportCSV() {
-      let csv = "Fournisseur,NIF,TotalHT\n";
-      const rows = document.querySelectorAll("#resultsTable tbody tr");
-      rows.forEach(r => {
-        const cols = r.querySelectorAll("td");
-        csv += Array.from(cols).map(c => c.innerText).join(",") + "\n";
-      });
-      const blob = new Blob([csv], { type:"text/csv" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "declaration_DC.csv";
-      a.click();
-    }
-
-    // 📄 Export PDF
-    async function exportPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text("Déclaration DC - Résumé", 10, 10);
-      let y = 30;
-      const rows = document.querySelectorAll("#resultsTable tbody tr");
-      doc.text("Fournisseur | NIF | TotalHT", 10, 20);
-      rows.forEach(r => {
-        const cols = r.querySelectorAll("td");
-        const line = Array.from(cols).map(c => c.innerText).join(" | ");
-        doc.text(line, 10, y);
-        y += 10;
-      });
-      doc.save("declaration_DC.pdf");
-    }
-  </script>
-</body>
-</html>
+</script>
